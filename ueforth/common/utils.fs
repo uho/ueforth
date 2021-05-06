@@ -51,7 +51,11 @@ only forth definitions
 
 ( List words in Dictionary / Vocabulary )
 internals definitions
+DEFINED? Terminal.write [IF]
+65 value line-width
+[ELSE]
 75 value line-width
+[THEN]
 : onlines ( n xt -- n xt )
    swap dup line-width > if drop 0 cr then over >name nip + 1+ swap ;
 : >name-length ( xt -- n ) dup 0= if exit then >name nip ;

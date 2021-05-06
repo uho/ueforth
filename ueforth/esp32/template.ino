@@ -3,6 +3,20 @@
  * Revision: {{REVISION}}
  */
 
+// Uncomment this #define for stand alone termminal mode using the
+// FabGL (http://www.fabglib.org/) library
+// You will need to install FabGL from the Library Manager:
+#define ENABLE_FABGL_SUPPORT
+
+#ifdef ENABLE_FABGL_SUPPORT
+#include "fabgl.h"
+
+fabgl::VGATextController DisplayController;
+fabgl::PS2Controller     PS2Controller;
+fabgl::Terminal          Terminal;
+#endif
+
+
 {{opcodes}}
 {{calling}}
 
@@ -132,6 +146,7 @@
   OPTIONAL_FREERTOS_SUPPORT \
   OPTIONAL_INTERRUPTS_SUPPORT \
   OPTIONAL_OLED_SUPPORT \
+  OPTIONAL_FABGL_SUPPORT \
 
 #ifndef ENABLE_SPIFFS_SUPPORT
 // Provide a default failing SPIFFS.begin
@@ -157,6 +172,17 @@
   Y(vTaskDelete, vTaskDelete((TaskHandle_t) n0); DROP) \
   Y(xTaskCreatePinnedToCore, n0 = xTaskCreatePinnedToCore((TaskFunction_t) a6, c5, n4, a3, (UBaseType_t) n2, (TaskHandle_t *) a1, (BaseType_t) n0); NIPn(6)) \
   Y(xPortGetCoreID, PUSH xPortGetCoreID())
+#endif
+
+#ifndef ENABLE_FABGL_SUPPORT
+# define OPTIONAL_FABGL_SUPPORT
+#else
+# define OPTIONAL_FABGL_SUPPORT \
+   /* FabGL Terminal */ \
+   X("Terminal.write", TERMINAL_WRITE, n0 = Terminal.write(b1, n0); NIP) \
+   X("Terminal.clear", TERMINAL_CLEAR, Terminal.clear()) \
+   X("Terminal.read", TERMINAL_READ, PUSH Terminal.read()) \
+   X("Terminal.available", TERMINAL_AVAILABLE, PUSH Terminal.available()) 
 #endif
 
 #ifndef ENABLE_INTERRUPTS_SUPPORT
@@ -463,6 +489,7 @@ static void InvokeWebServerOn(WebServer *ws, const char *url, cell_t xt) {
 }
 #endif
 
+#ifdef ENABLE_INTERRUPTS_SUPPORT
 struct handle_interrupt_args {
   cell_t xt;
   cell_t arg;
@@ -505,8 +532,41 @@ static cell_t TimerIsrRegister(cell_t group, cell_t timer, cell_t xt, cell_t arg
   args->arg = arg;
   return timer_isr_register((timer_group_t) group, (timer_idx_t) timer, HandleInterrupt, args, flags, (timer_isr_handle_t *) ret);
 }
+#endif
+
+#ifdef ENABLE_FABGL_SUPPORT
+void print_info() {
+   Terminal.write("\e[37m* * FabGL - Loopback VT/ANSI Terminal\r\n");
+   Terminal.write("\e[34m* * 2019-2020 by Fabrizio Di Vittorio - www.fabgl.com\e[32m\r\n\n");
+   Terminal.printf("\e[32mScreen Size        :\e[33m %d x %d\r\n", DisplayController.getScreenWidth(), DisplayController.getScreenHeight());
+   Terminal.printf("\e[32mTerminal Size      :\e[33m %d x %d\r\n", Terminal.getColumns(), Terminal.getRows());
+   Terminal.printf("\e[32mKeyboard           :\e[33m %s\r\n", PS2Controller.keyboard()->isKeyboardAvailable() ? "OK" : "Error");
+   Terminal.printf("\e[32mFree DMA Memory    :\e[33m %d\r\n", heap_caps_get_free_size(MALLOC_CAP_DMA));
+   Terminal.printf("\e[32mFree 32 bit Memory :\e[33m %d\r\n\n", heap_caps_get_free_size(MALLOC_CAP_32BIT));
+}
+
+void fabGL_setup() {
+   PS2Controller.begin(PS2Preset::KeyboardPort0);
+   DisplayController.begin();
+   DisplayController.setResolution();
+   Terminal.begin(&DisplayController);
+   Terminal.connectLocally();      // to use Terminal.read(), available(), etc..
+   Terminal.setBackgroundColor(Color::Black);
+   Terminal.setForegroundColor(Color::White);
+   Terminal.clear();
+   // print_info();
+   Terminal.setBackgroundColor(Color::Black);
+   Terminal.setForegroundColor(Color::White);
+   // Terminal.loadFont(&fabgl::FONT_6x8);
+   Terminal.enableCursor(true);
+   Terminal.keyboard()->setLayout(&fabgl::GermanLayout);
+}
+#endif
 
 void setup() {
+#ifdef ENABLE_FABGL_SUPPORT
+  fabGL_setup();
+#endif
   cell_t *heap = (cell_t *) malloc(HEAP_SIZE);
   forth_init(0, 0, heap, boot, sizeof(boot));
 }

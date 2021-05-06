@@ -1,5 +1,7 @@
 ( Set up Basic I/O )
 internals definitions
+: arduino-cr ( -- ) nl emit ;
+' arduino-cr is cr
 : arduino-bye   0 terminate ;
 ' arduino-bye is bye
 : arduino-type ( a n -- ) Serial.write drop ;
@@ -9,6 +11,18 @@ internals definitions
 ' arduino-key is key
 : arduino-key? ( -- n ) Serial.available ;
 ' arduino-key? is key?
+
+DEFINED? Terminal.write [IF]
+: terminal-cr ( -- ) nl emit 13 emit ;
+' terminal-cr is cr
+: terminal-type ( a n -- )  Terminal.write drop ;
+' terminal-type is type
+: terminal-key ( -- n )  Terminal.read ;
+' terminal-key is key
+: terminal-key? ( -- n ) Terminal.available ;
+' terminal-key? is key?
+[THEN]
+
 forth definitions
 
 ( Map Arduino / ESP32 things to shorter names. )
@@ -19,7 +33,11 @@ forth definitions
 : tone ( n n -- ) 1000 * ledcWriteTone drop ;
 
 ( Utilities )
+DEFINED? Terminal.clear [IF]
+: page   Terminal.clear ;
+[ELSE]
 : page   30 for cr next ;
+[THEN]
 
 ( Basic Ardiuno Constants )
 0 constant LOW

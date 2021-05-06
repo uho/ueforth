@@ -155,7 +155,9 @@ defer key
 defer key?
 defer bye
 : emit ( n -- ) >r rp@ 1 type rdrop ;
-: space bl emit ;   : cr nl emit ;
+: space bl emit ;
+defer cr
+: (cr)  nl emit ; ' (cr) is cr
 
 ( Numeric Output )
 variable hld
@@ -206,7 +208,7 @@ variable echo -1 echo !   variable arrow -1 arrow !
 : ?arrow.   arrow @ if >r >r raw.s r> r> ." --> " then ;
 : accept ( a n -- n ) ?arrow. 0 swap begin 2dup < while
      key
-     dup nl = over 13 = or if ?echo drop nip exit then
+     dup nl = over 13 = or if drop space drop nip exit then
      dup 8 = over 127 = or if
        drop over if rot 1- rot 1- rot 8 ?echo bl ?echo 8 ?echo then
      else
