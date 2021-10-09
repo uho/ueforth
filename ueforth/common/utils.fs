@@ -1,3 +1,17 @@
+\ Copyright 2021 Bradley D. Nelson
+\
+\ Licensed under the Apache License, Version 2.0 (the "License");
+\ you may not use this file except in compliance with the License.
+\ You may obtain a copy of the License at
+\
+\     http://www.apache.org/licenses/LICENSE-2.0
+\
+\ Unless required by applicable law or agreed to in writing, software
+\ distributed under the License is distributed on an "AS IS" BASIS,
+\ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+\ See the License for the specific language governing permissions and
+\ limitations under the License.
+
 ( Words built after boot )
 
 ( For tests and asserts )
@@ -28,6 +42,7 @@ internals definitions
 : see-one ( xt -- xt+1 )
    dup cell+ swap @
    dup ['] DOLIT = if drop dup @ . cell+ exit then
+   dup ['] DOFLIT = if drop dup sf@ <# [char] e hold #fs #> type space cell+ exit then
    dup ['] $@ = if drop ['] s" see.
                    dup @ dup >r >r dup cell+ r> type cell+ r> aligned +
                    [char] " emit space exit then

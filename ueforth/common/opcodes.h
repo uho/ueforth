@@ -1,3 +1,17 @@
+// Copyright 2021 Bradley D. Nelson
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <inttypes.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -70,8 +84,9 @@ typedef int64_t dcell_t;
   Y(CELL, DUP; tos = sizeof(cell_t)) \
   Y(FIND, tos = find((const char *) *sp, tos); --sp) \
   Y(PARSE, DUP; tos = parse(tos, sp)) \
-  X("S>NUMBER?", CONVERT, tos = convert((const char *) *sp, tos, sp); \
+  X("S>NUMBER?", CONVERT, tos = convert((const char *) *sp, tos, g_sys.base, sp); \
                           if (!tos) --sp) \
+  X("F>NUMBER?", FCONVERT, tos = fconvert((const char *) *sp, tos, fp); --sp) \
   Y(CREATE, DUP; DUP; tos = parse(32, sp); \
             create((const char *) *sp, tos, 0, ADDR_DOCREATE); \
             COMMA(0); DROPn(2)) \
@@ -82,7 +97,9 @@ typedef int64_t dcell_t;
   X(":", COLON, DUP; DUP; tos = parse(32, sp); \
                 create((const char *) *sp, tos, SMUDGE, ADDR_DOCOLON); \
                 g_sys.state = -1; --sp; DROP) \
-  Y(EVALUATE1, DUP; sp = evaluate1(sp); w = *sp--; DROP; if (w) JMPW) \
+  Y(EVALUATE1, DUP; float *tfp = fp; \
+               sp = evaluate1(sp, &tfp); \
+               fp = tfp; w = *sp--; DROP; if (w) JMPW) \
   Y(EXIT, ip = (cell_t *) *rp--) \
   X(";", SEMICOLON, UNSMUDGE(); COMMA(g_sys.DOEXIT_XT); g_sys.state = 0) \
 

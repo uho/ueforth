@@ -1,3 +1,17 @@
+// Copyright 2021 Bradley D. Nelson
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #define JMPW goto **(void **) w
 #define NEXT w = *ip++; JMPW
 #define ADDR_DOCOLON && OP_DOCOLON
@@ -13,7 +27,9 @@ static cell_t *forth_run(cell_t *init_rp) {
     return 0;
   }
   register cell_t *ip, *rp, *sp, tos, w;
+  register float *fp;
   rp = init_rp;  ip = (cell_t *) *rp--;  sp = (cell_t *) *rp--;
+  fp = (float *) *rp--;
   DROP; NEXT;
 #define X(name, op, code) OP_ ## op: { code; } NEXT;
   PLATFORM_OPCODE_LIST

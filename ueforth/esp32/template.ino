@@ -1,4 +1,20 @@
 /*
+ * Copyright 2021 Bradley D. Nelson
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
+/*
  * ESP32forth v{{VERSION}}
  * Revision: {{REVISION}}
  */
@@ -18,6 +34,7 @@ fabgl::Terminal          Terminal;
 
 
 {{opcodes}}
+{{floats}}
 {{calling}}
 
 // For now, default on several options.
@@ -70,7 +87,15 @@ fabgl::Terminal          Terminal;
 #endif
 #define INTERRUPT_STACK_CELLS 64
 
+// Optional hook to pull in words for userwords.h
+#if __has_include("userwords.h")
+# include "userwords.h"
+#else
+# define USER_WORDS
+#endif
+
 #define PLATFORM_OPCODE_LIST \
+  FLOATING_POINT_LIST \
   /* Memory Allocation */ \
   Y(MALLOC, SET malloc(n0)) \
   Y(SYSFREE, free(a0); DROP) \
@@ -148,6 +173,7 @@ fabgl::Terminal          Terminal;
   OPTIONAL_INTERRUPTS_SUPPORT \
   OPTIONAL_OLED_SUPPORT \
   OPTIONAL_FABGL_SUPPORT \
+  USER_WORDS
 
 #ifndef ENABLE_SPIFFS_SUPPORT
 // Provide a default failing SPIFFS.begin

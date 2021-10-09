@@ -1,3 +1,17 @@
+\ Copyright 2021 Bradley D. Nelson
+\
+\ Licensed under the Apache License, Version 2.0 (the "License");
+\ you may not use this file except in compliance with the License.
+\ You may obtain a copy of the License at
+\
+\     http://www.apache.org/licenses/LICENSE-2.0
+\
+\ Unless required by applicable law or agreed to in writing, software
+\ distributed under the License is distributed on an "AS IS" BASIS,
+\ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+\ See the License for the specific language governing permissions and
+\ limitations under the License.
+
 : dump-file ( a n a n -- )
   w/o create-file if drop ." failed create-file" exit then
   >r r@ write-file if r> drop ." failed write-file" exit then
@@ -6,7 +20,7 @@
 
 internals definitions
 ( Leave some room for growth of starting system. )
-$4000 constant growth-gap
+$8000 constant growth-gap
 here growth-gap + growth-gap 1- + growth-gap 1- invert and constant saving-base
 : park-heap ( -- a ) saving-base ;
 : park-forth ( -- a ) saving-base cell+ ;
