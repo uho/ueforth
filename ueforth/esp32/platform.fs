@@ -52,9 +52,15 @@ internals definitions
    begin pause Serial.available until 0 >r rp@ 1 Serial.readBytes drop r> ;
 : serial-key? ( -- n ) Serial.available ;
 also forth definitions
+DEFINED? Terminal.write [IF]
+: default-type terminal-type ;
+: default-key terminal-key ;
+: default-key? terminal-key? ;
+[ELSE]
 : default-type serial-type ;
 : default-key serial-key ;
 : default-key? serial-key? ;
+[THEN]
 ' default-type is type
 ' default-key is key
 ' default-key? is key?
