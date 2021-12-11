@@ -2,6 +2,10 @@
 
 This EForth inspired implementation of Forth is bootstraped from a minimalist C kernel.
 
+## Using the provided Arduino file
+
+You find it as [ueforth/out/esp32/ESP32forth/ESP32forth.ino](https://github.com/uho/eforth/blob/VGA32/ueforth/out/esp32/ESP32forth/ESP32forth.ino)
+
 ## Building from Source
 
 To build:
