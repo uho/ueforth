@@ -16,7 +16,7 @@
 
 /*
  * ESP32forth v7.0.6.6
- * Revision: 7b69af3576ede0596f985952693d074204c75331
+ * Revision: ea1684e75d6b88d7ed1bbd2dfb5121c7b47dd782
  */
 
 // Uncomment this #define for stand alone termminal mode using the
@@ -1266,9 +1266,15 @@ const char boot[] =
 "   begin pause Serial.available until 0 >r rp@ 1 Serial.readBytes drop r> ;\n"
 ": serial-key? ( -- n ) Serial.available ;\n"
 "also forth definitions\n"
+"DEFINED? Terminal.write [IF]\n"
+": default-type terminal-type ;\n"
+": default-key terminal-key ;\n"
+": default-key? terminal-key? ;\n"
+"[ELSE]\n"
 ": default-type serial-type ;\n"
 ": default-key serial-key ;\n"
 ": default-key? serial-key? ;\n"
+"[THEN]\n"
 "' default-type is type\n"
 "' default-key is key\n"
 "' default-key? is key?\n"
@@ -1305,7 +1311,7 @@ const char boot[] =
 "high led pin\n"
 "\n"
 "( Setup entry )\n"
-": ok   .\" ESP32forth v7.0.6.6 - rev 7b69af3576ede0596f985952693d074204c75331\" cr prompt refill drop quit ;\n"
+": ok   .\" ESP32forth v7.0.6.6 - rev ea1684e75d6b88d7ed1bbd2dfb5121c7b47dd782\" cr prompt refill drop quit ;\n"
 "( Words with OS assist )\n"
 ": allocate ( n -- a ior ) malloc dup 0= ;\n"
 ": free ( a -- ior ) sysfree drop 0 ;\n"
