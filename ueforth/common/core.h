@@ -16,26 +16,51 @@
 
 #define CELL_MASK (sizeof(cell_t) - 1)
 #define CELL_LEN(n) (((n) + CELL_MASK) / sizeof(cell_t))
-#define FIND(name) find(name, sizeof(name) - 1)
+#define FIND(name) find((name), sizeof(name) - 1)
 #define UPPER(ch) (((ch) >= 'a' && (ch) <= 'z') ? ((ch) & 0x5F) : (ch))
-#define CELL_ALIGNED(a) (((cell_t) (a) + CELL_MASK) & ~CELL_MASK)
+#define CELL_ALIGNED(a) ((((cell_t) (a)) + CELL_MASK) & ~CELL_MASK)
 #define IMMEDIATE 1
 #define SMUDGE 2
+#define BUILTIN_FORK 4
+#define BUILTIN_MARK 8
+
+// Maximum ALSO layers.
 #define VOCABULARY_DEPTH 16
 
 #if PRINT_ERRORS
-#include <unistd.h>
+#include <stdio.h>
 #endif
 
+enum {
+#define V(name) VOC_ ## name,
+  VOCABULARY_LIST
+#undef V
+};
+
+enum {
+#define V(name) VOC_ ## name ## _immediate = VOC_ ## name + (IMMEDIATE << 8),
+  VOCABULARY_LIST
+#undef V
+};
+
 static struct {
+  cell_t *heap, **current, ***context;
+  cell_t *latestxt, notfound;
+  cell_t *heap_start;
+  cell_t heap_size, stack_cells;
+  const char *boot;
+  cell_t boot_size;
   const char *tib;
   cell_t ntib, tin, state, base;
-  cell_t *heap, **current, ***context, notfound;
   int argc;
   char **argv;
   cell_t *(*runner)(cell_t *rp);  // pointer to forth_run
+
+  // Layout not used by Forth.
   cell_t *rp;  // spot to park main thread
   cell_t DOLIT_XT, DOFLIT_XT, DOEXIT_XT, YIELD_XT;
+  void *DOCREATE_OP;
+  const BUILTIN_WORD *builtins;
 } g_sys;
 
 static cell_t convert(const char *pos, cell_t n, cell_t base, cell_t *ret) {
@@ -50,7 +75,7 @@ static cell_t convert(const char *pos, cell_t n, cell_t base, cell_t *ret) {
       d -= 7;
       if (d < 10) { return 0; }
     }
-    if (d >= base) { return 0; }
+    if (d >= (uintptr_t) base) { return 0; }
     *ret = *ret * base + d;
     ++pos;
   }
@@ -101,28 +126,46 @@ static cell_t same(const char *a, const char *b, cell_t len) {
 
 static cell_t find(const char *name, cell_t len) {
   for (cell_t ***voc = g_sys.context; *voc; ++voc) {
-    cell_t *pos = **voc;
-    cell_t clen = CELL_LEN(len);
-    while (pos) {
-      if (!(pos[-1] & SMUDGE) && len == pos[-3] &&
-          same(name, (const char *) &pos[-3 - clen], len)) {
-        return (cell_t) pos;
+    cell_t xt = (cell_t) **voc;
+    while (xt) {
+      if ((*TOFLAGS(xt) & BUILTIN_FORK)) {
+        cell_t vocab = TOLINK(xt)[3];
+        for (int i = 0; g_sys.builtins[i].name; ++i) {
+          if (g_sys.builtins[i].vocabulary == vocab &&
+              len == g_sys.builtins[i].name_length &&
+              same(name, g_sys.builtins[i].name, len)) {
+            return (cell_t) &g_sys.builtins[i].code;
+          }
+        }
       }
-      pos = (cell_t *) pos[-2];  // Follow link
+      if (!(*TOFLAGS(xt) & SMUDGE) && len == *TONAMELEN(xt) &&
+                 same(name, TONAME(xt), len)) {
+        return xt;
+      }
+      xt = *TOLINK(xt);
     }
   }
   return 0;
 }
 
-static void create(const char *name, cell_t length, cell_t flags, void *op) {
+static void finish(void) {
+  if (g_sys.latestxt && !*TOPARAMS(g_sys.latestxt)) {
+    cell_t sz = g_sys.heap - &g_sys.latestxt[1];
+    if (sz < 0 || sz > 0xffff) { sz = 0xffff; }
+    *TOPARAMS(g_sys.latestxt) = sz;
+  }
+}
+
+static void create(const char *name, cell_t nlength, cell_t flags, void *op) {
+  finish();
   g_sys.heap = (cell_t *) CELL_ALIGNED(g_sys.heap);
   char *pos = (char *) g_sys.heap;
-  for (cell_t n = length; n; --n) { *pos++ = *name++; }  // name
-  g_sys.heap += CELL_LEN(length);
-  *g_sys.heap++ = length;  // length
+  for (cell_t n = nlength; n; --n) { *pos++ = *name++; }  // name
+  g_sys.heap += CELL_LEN(nlength);
   *g_sys.heap++ = (cell_t) *g_sys.current;  // link
-  *g_sys.heap++ = flags;  // flags
+  *g_sys.heap++ = (nlength << 8) | flags;  // flags & length
   *g_sys.current = g_sys.heap;
+  g_sys.latestxt = g_sys.heap;
   *g_sys.heap++ = (cell_t) op;  // code
 }
 
@@ -131,8 +174,10 @@ static int match(char sep, char ch) {
 }
 
 static cell_t parse(cell_t sep, cell_t *ret) {
-  while (g_sys.tin < g_sys.ntib &&
-         match(sep, g_sys.tib[g_sys.tin])) { ++g_sys.tin; }
+  if (sep == ' ') {
+    while (g_sys.tin < g_sys.ntib &&
+           match(sep, g_sys.tib[g_sys.tin])) { ++g_sys.tin; }
+  }
   *ret = (cell_t) (g_sys.tib + g_sys.tin);
   while (g_sys.tin < g_sys.ntib &&
          !match(sep, g_sys.tib[g_sys.tin])) { ++g_sys.tin; }
@@ -173,8 +218,9 @@ static cell_t *evaluate1(cell_t *sp, float **fp) {
         }
       } else {
 #if PRINT_ERRORS
-        write(2, (void *) name, len);
-        write(2, "\n", 1);
+        fprintf(stderr, "CANT FIND: ");
+        fwrite((void *) name, 1, len, stderr);
+        fprintf(stderr, "\n");
 #endif
         *++sp = name;
         *++sp = len;
@@ -189,24 +235,38 @@ static cell_t *evaluate1(cell_t *sp, float **fp) {
 
 static cell_t *forth_run(cell_t *initrp);
 
-static void forth_init(int argc, char *argv[], void *heap,
-                         const char *src, cell_t src_len) {
-  g_sys.heap = ((cell_t *) heap) + 4;  // Leave a little room.
-  cell_t *sp = g_sys.heap + 1; g_sys.heap += STACK_SIZE;
-  cell_t *rp = g_sys.heap + 1; g_sys.heap += STACK_SIZE;
-  float *fp = (float *) (g_sys.heap + 1); g_sys.heap += STACK_SIZE;
+static void forth_init(int argc, char *argv[],
+                       void *heap, cell_t heap_size,
+                       const char *src, cell_t src_len) {
+  g_sys.heap_start = (cell_t *) heap;
+  g_sys.heap_size = heap_size;
+  g_sys.stack_cells = STACK_CELLS;
+  g_sys.boot = src;
+  g_sys.boot_size = src_len;
 
-  // FORTH vocabulary
-  *g_sys.heap++ = 0; cell_t *forth = g_sys.heap;
-  *g_sys.heap++ = 0;  *g_sys.heap++ = 0;  *g_sys.heap++ = 0;
+  g_sys.heap = g_sys.heap_start + 4;  // Leave a little room.
+  float *fp = (float *) (g_sys.heap + 1); g_sys.heap += STACK_CELLS;
+  cell_t *rp = g_sys.heap + 1; g_sys.heap += STACK_CELLS;
+  cell_t *sp = g_sys.heap + 1; g_sys.heap += STACK_CELLS;
+
+  // FORTH worldlist (relocated when vocabularies added).
+  cell_t *forth_wordlist = g_sys.heap;
+  *g_sys.heap++ = 0;
   // Vocabulary stack
-  g_sys.current = (cell_t **) forth;
+  g_sys.current = (cell_t **) forth_wordlist;
   g_sys.context = (cell_t ***) g_sys.heap;
-  *g_sys.heap++ = (cell_t) forth;
+  g_sys.latestxt = 0;
+  *g_sys.heap++ = (cell_t) forth_wordlist;
   for (int i = 0; i < VOCABULARY_DEPTH; ++i) { *g_sys.heap++ = 0; }
 
   forth_run(0);
-  (*g_sys.current)[-1] = IMMEDIATE;  // Make last word ; IMMEDIATE
+#define V(name) \
+  create(#name "-builtins", sizeof(#name "-builtins") - 1, \
+      BUILTIN_FORK, g_sys.DOCREATE_OP); \
+  *g_sys.heap++ = VOC_ ## name;
+  VOCABULARY_LIST
+#undef V
+  g_sys.latestxt = 0;  // So last builtin doesn't get wrong size.
   g_sys.DOLIT_XT = FIND("DOLIT");
   g_sys.DOFLIT_XT = FIND("DOFLIT");
   g_sys.DOEXIT_XT = FIND("EXIT");
@@ -221,8 +281,8 @@ static void forth_init(int argc, char *argv[], void *heap,
   g_sys.base = 10;
   g_sys.tib = src;
   g_sys.ntib = src_len;
-  *++rp = (cell_t) sp;
   *++rp = (cell_t) fp;
+  *++rp = (cell_t) sp;
   *++rp = (cell_t) start;
   g_sys.rp = rp;
   g_sys.runner = forth_run;

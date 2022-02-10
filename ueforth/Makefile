@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-VERSION=7.0.6.6
+VERSION=7.0.6.15
 STABLE_VERSION=7.0.5.4
-REVISION=$(shell git rev-parse HEAD)
+REVISION=$(shell git rev-parse HEAD | head -c 20)
 REVSHORT=$(shell echo $(REVISION) | head -c 7)
 
 OUT = out
@@ -24,6 +24,7 @@ WEB = $(OUT)/web
 POSIX = $(OUT)/posix
 WINDOWS = $(OUT)/windows
 ESP32 = $(OUT)/esp32
+ESP32_SIM = $(OUT)/esp32-sim
 DEPLOY = $(OUT)/deploy
 
 ifneq ($(OS),Windows_NT)
@@ -46,6 +47,7 @@ CFLAGS_MINIMIZE = \
                 -fmerge-all-constants
 CFLAGS = $(CFLAGS_COMMON) \
          $(CFLAGS_MINIMIZE) \
+         -std=c++11 \
          -Wall \
          -Werror
 
@@ -84,10 +86,11 @@ WIN_LFLAGS64 = /LIBPATH:"c:/Program Files (x86)/Microsoft SDKs/Windows/v7.1A/Lib
                /LIBPATH:"c:/Program Files (x86)/Microsoft Visual Studio/2019/Community/VC/Tools/MSVC/14.28.29333/lib/x64" \
                /LIBPATH:"c:/Program Files (x86)/Windows Kits/10/Lib/10.0.19041.0/ucrt/x64" \
 
-TARGETS = $(WEB)/terminal.html \
-          $(WEB)/ueforth.js \
-          $(POSIX)/ueforth \
-          $(ESP32)/ESP32forth/ESP32forth.ino
+TARGETS = posix_target \
+          web_target \
+          esp32_target \
+          esp32_sim_target
+TESTS = posix_tests web_tests esp32_sim_tests
 
 LSQ = ls 2>/dev/null
 
@@ -105,7 +108,8 @@ RC64 = "$(shell $(LSQ) ${MSKITS}/*/bin/*/x64/rc.exe | head -n 1)"
 DEPLOYABLE := 1
 ifneq ("", $(CL32))
   ifneq ("", $(RC32))
-    TARGETS += $(WINDOWS)/uEf32.exe
+    TARGETS += win32_target
+    TESTS += win32_tests
   else
     $(warning "Missing Visual Studio rc.exe skipping 32-bit Windows.")
     DEPLOYABLE := 0
@@ -116,7 +120,8 @@ else
 endif
 ifneq ("", $(CL64))
   ifneq ("", $(RC64))
-    TARGETS += $(WINDOWS)/uEf64.exe
+    TARGETS += win64_target
+    TESTS += win64_tests
   else
     $(warning "Missing Visual Studio rc.exe skipping 64-bit Windows.")
     DEPLOYABLE := 0
@@ -134,73 +139,101 @@ else
   $(warning "Missing some platforms skipping deployment build.")
 endif
 
-all: $(TARGETS) tests $(DEPLOY_TARGETS)
+all: targets tests $(DEPLOY_TARGETS)
+fast: posix esp32_sim esp32
+
+targets: $(TARGETS)
+tests: $(TESTS)
 
 clean:
 	rm -rf $(OUT)
 
 # ---- TESTS ----
 
-tests: unit_tests see_all_test
+posix_tests: unit_tests_posix see_all_test_posix save_restore_test
+win32_tests: unit_tests_win32
+win64_tests: unit_tests_win64
+web_tests:
+esp32_tests:
+esp32_sim_tests: unit_tests_esp32_sim see_all_test_esp32_sim sizes
 
-unit_tests: $(POSIX)/ueforth common/all_tests.fs
+# ---- UNIT TESTS ----
+
+unit_tests_posix: $(POSIX)/ueforth common/all_tests.fs
 	$^
 
-see_all_test: $(POSIX)/ueforth
-	echo \
-     also internals \
-     also posix \
-     also tasks \
-     also streams \
-     also ansi \
-     also termios \
-     also sockets \
-     also telnetd \
-     also httpd \
-     also web-interface \
-     also editor \
-     see-all bye | $< >/dev/null
+unit_tests_esp32_sim: \
+    $(ESP32_SIM)/Esp32forth-sim \
+    common/ansi.fs \
+    common/all_tests.fs
+	echo "include $(word 2,$^) include $(word 3,$^) \n1 terminate" | $<
+
+unit_tests_win32: $(WINDOWS)/uEf32.exe common/all_tests.fs
+	wine $^
+
+unit_tests_win64: $(WINDOWS)/uEf64.exe common/all_tests.fs
+	wine $^
+
+# ---- OTHER TESTS ----
+
+see_all_test_posix: $(POSIX)/ueforth
+	echo internals see-all bye | $< >/dev/null
+
+see_all_test_esp32_sim: $(ESP32_SIM)/Esp32forth-sim
+	echo internals see-all bye | $< >/dev/null
+
+save_restore_test: $(POSIX)/ueforth
+	echo ': square dup * ; save /tmp/save_restore_test.bin bye' | $< >/dev/null
+	echo 'restore /tmp/save_restore_test.bin 4 square 16 - posix sysexit' | $< >/dev/null
+
+sizes: $(ESP32_SIM)/Esp32forth-sim
+	echo internals size-all bye | $< | tools/memuse.py >$(ESP32_SIM)/sizes.txt
 
 # ---- GENERATED ----
 
 $(GEN):
 	mkdir -p $@
 
-POSIX_BOOT =  common/boot.fs common/conditionals.fs common/vocabulary.fs \
-              common/hide_calls.fs common/ansi.fs common/floats.fs \
-              posix/posix.fs posix/posix_highlevel.fs posix/termios.fs \
-              common/tasks.fs common/utils.fs common/highlevel.fs common/filetools.fs \
-              common/locals.fs posix/posix_desktop.fs \
-              common/streams.fs common/blocks.fs \
+COMMON_PHASE1 = common/boot.fs common/conditionals.fs common/vocabulary.fs \
+                     common/floats.fs
+
+COMMON_DESKTOP = common/ansi.fs common/desktop.fs
+
+COMMON_PHASE2 = common/tasks.fs common/utils.fs common/locals.fs \
+                common/filetools.fs common/including.fs \
+                common/streams.fs common/blocks.fs
+
+POSIX_BOOT =  $(COMMON_PHASE1) \
+              posix/posix.fs posix/allocation.fs posix/termios.fs \
+              $(COMMON_PHASE2) $(COMMON_DESKTOP) \
               posix/sockets.fs posix/telnetd.fs posix/httpd.fs posix/web_interface.fs \
               posix/autoboot.fs \
               common/fini.fs
 $(GEN)/posix_boot.h: common/source_to_string.js $(POSIX_BOOT) | $(GEN)
-	echo "ok" | cat $(POSIX_BOOT) - | cat | $< boot $(VERSION) $(REVISION) >$@
+	$< boot $(VERSION) $(REVISION) $(POSIX_BOOT) >$@
 
-WINDOWS_BOOT = common/boot.fs common/conditionals.fs common/vocabulary.fs \
-               common/hide_calls.fs common/ansi.fs common/floats.fs \
-               windows/windows.fs windows/windows_highlevel.fs common/highlevel.fs \
-               common/tasks.fs common/utils.fs common/filetools.fs common/streams.fs \
-               common/blocks.fs common/locals.fs \
+WINDOWS_BOOT = $(COMMON_PHASE1) \
+               windows/windows.fs windows/allocation.fs \
+               $(COMMON_PHASE2) $(COMMON_DESKTOP) \
+               posix/autoboot.fs \
                common/fini.fs
 $(GEN)/windows_boot.h: common/source_to_string.js $(WINDOWS_BOOT) | $(GEN)
-	echo "ok" | cat $(WINDOWS_BOOT) - | cat | $< boot $(VERSION) $(REVISION) >$@
+	$< -win boot $(VERSION) $(REVISION) $(WINDOWS_BOOT) >$@
 
-ESP32_BOOT = common/boot.fs common/conditionals.fs common/vocabulary.fs \
-             common/tasks.fs esp32/platform.fs esp32/highlevel.fs \
-             esp32/bindings.fs common/highlevel.fs common/floats.fs \
-             common/filetools.fs common/utils.fs common/locals.fs \
-             common/streams.fs posix/httpd.fs posix/web_interface.fs esp32/web_interface.fs \
+ESP32_BOOT = $(COMMON_PHASE1) \
+             esp32/allocation.fs \
+             $(COMMON_PHASE2) \
+             esp32/bindings.fs esp32/platform.fs \
+             posix/httpd.fs posix/web_interface.fs esp32/web_interface.fs \
              esp32/registers.fs esp32/timers.fs \
              esp32/bterm.fs posix/telnetd.fs \
-             esp32/camera.fs esp32/camera_server.fs common/blocks.fs \
+             esp32/camera.fs esp32/camera_server.fs \
              esp32/autoboot.fs common/fini.fs
 $(GEN)/esp32_boot.h: common/source_to_string.js $(ESP32_BOOT) | $(GEN)
-	echo "ok" | cat $(ESP32_BOOT) - | cat | $< boot $(VERSION) $(REVISION) >$@
+	$< boot $(VERSION) $(REVISION) $(ESP32_BOOT) >$@
 
 $(GEN)/dump_web_opcodes: web/dump_web_opcodes.c common/opcodes.h | $(GEN)
-	$(CC) $(CFLAGS) $< -o $@
+	$(CXX) $(CFLAGS) $< -o $@
 
 $(GEN)/web_cases.js: $(GEN)/dump_web_opcodes | $(GEN)
 	$< cases >$@
@@ -241,6 +274,9 @@ $(RES)/ueforth_res64.res: windows/ueforth.rc $(RES)/eforth.ico
 
 # ---- WEB ----
 
+web: web_target web_tests
+web_target: $(WEB)/terminal.html $(WEB)/ueforth.js
+
 $(WEB):
 	mkdir -p $(WEB)
 
@@ -257,32 +293,44 @@ $(WEB)/ueforth.js: \
 
 # ---- POSIX ----
 
+posix: posix_target posix_tests
+posix_target: $(POSIX)/ueforth
+
 $(POSIX):
 	mkdir -p $@
 
 $(POSIX)/ueforth: \
-    posix/posix_main.c \
+    posix/main.c \
     common/opcodes.h \
+    common/extra_opcodes.h \
     common/calls.h \
+    common/calling.h \
     common/floats.h \
     common/interp.h \
     common/core.h \
     $(GEN)/posix_boot.h | $(POSIX)
-	$(CC) $(CFLAGS) $< -o $@ $(LIBS)
+	$(CXX) $(CFLAGS) $< -o $@ $(LIBS)
 	strip $(STRIP_ARGS) $@
 
 # ---- WINDOWS ----
+
+win32: win32_target win32_tests
+win64: win64_target win64_tests
+win32_target: $(WINDOWS)/uEf32.exe
+win64_target: $(WINDOWS)/uEf64.exe
 
 $(WINDOWS):
 	mkdir -p $@
 
 $(WINDOWS)/uEf32.obj: \
-    windows/windows_main.c \
+    windows/main.c \
     common/opcodes.h \
+    common/extra_opcodes.h \
     common/calls.h \
+    common/calling.h \
     common/floats.h \
     common/core.h \
-    windows/windows_interp.h \
+    windows/interp.h \
     $(GEN)/windows_boot.h | $(WINDOWS)
 	$(CL32) /c /Fo$@ $(WIN_CFLAGS) $<
 
@@ -292,12 +340,14 @@ $(WINDOWS)/uEf32.exe: \
 	$(LINK32) /OUT:$@ $(WIN_LFLAGS32) $^
 
 $(WINDOWS)/uEf64.obj: \
-    windows/windows_main.c \
+    windows/main.c \
     common/opcodes.h \
+    common/extra_opcodes.h \
     common/calls.h \
+    common/calling.h \
     common/floats.h \
     common/core.h \
-    windows/windows_interp.h \
+    windows/interp.h \
     $(GEN)/windows_boot.h | $(WINDOWS)
 	$(CL64) /c /Fo$@ $(WIN_CFLAGS) $<
 
@@ -306,22 +356,74 @@ $(WINDOWS)/uEf64.exe: \
     $(RES)/ueforth_res64.res | $(WINDOWS)
 	$(LINK64) /OUT:$@ $(WIN_LFLAGS64) $^
 
+# ---- ESP32-SIM ----
+
+esp32_sim: esp32_sim_target esp32_sim_tests
+esp32_sim_target: $(ESP32_SIM)/Esp32forth-sim
+
+$(ESP32_SIM):
+	mkdir -p $@
+
+$(GEN)/print-esp32-builtins: \
+    esp32/print-builtins.cpp esp32/builtins.h | $(GEN)
+	$(CXX) $(CFLAGS) $< -o $@
+
+$(GEN)/esp32_sim_opcodes.h: $(GEN)/print-esp32-builtins | $(GEN)
+	$< >$@
+
+$(ESP32_SIM)/Esp32forth-sim: \
+    esp32/sim_main.cpp \
+    esp32/main.cpp \
+    common/opcodes.h \
+    common/extra_opcodes.h \
+    common/floats.h \
+    common/calling.h \
+    common/floats.h \
+    common/core.h \
+    common/interp.h \
+    $(GEN)/esp32_boot.h \
+    $(GEN)/esp32_sim_opcodes.h | $(ESP32_SIM)
+	$(CXX) $(CFLAGS) -m32 -D_FILE_OFFSET_BITS=64 $< -o $@
+	strip $(STRIP_ARGS) $@
+
 # ---- ESP32 ----
+
+esp32: esp32_target esp32_sim esp32_tests esp32_sim_tests
+esp32_target: $(ESP32)/ESP32forth/ESP32forth.ino
 
 $(ESP32)/ESP32forth:
 	mkdir -p $@
 
-ESP32_PARTS = esp32/template.ino \
+ESP32_PARTS = tools/replace.js \
+              esp32/template.ino \
               common/opcodes.h \
-              common/calling.h \
+              common/extra_opcodes.h \
               common/floats.h \
+              common/calling.h \
               common/core.h \
               common/interp.h \
+              esp32/options.h \
+              esp32/builtins.h \
+              esp32/builtins.cpp \
+              esp32/main.cpp \
               $(GEN)/esp32_boot.h
 
-$(ESP32)/ESP32forth/ESP32forth.ino: \
-    esp32/fuse_ino.js $(ESP32_PARTS) | $(ESP32)/ESP32forth
-	$< $(VERSION) $(REVISION) $(ESP32_PARTS) >$@
+$(ESP32)/ESP32forth/ESP32forth.ino: $(ESP32_PARTS) | $(ESP32)/ESP32forth
+	cat esp32/template.ino | tools/replace.js \
+     VERSION=$(VERSION) \
+     REVISION=$(REVISION) \
+     opcodes=@common/opcodes.h \
+     extra_opcodes=@common/extra_opcodes.h \
+     calling=@common/calling.h \
+     floats=@common/floats.h \
+     core=@common/core.h \
+     interp=@common/interp.h \
+     options=@esp32/options.h \
+     builtins.h=@esp32/builtins.h \
+     builtins.cpp=@esp32/builtins.cpp \
+     main.cpp=@esp32/main.cpp \
+     boot=@$(GEN)/esp32_boot.h \
+     >$@
 
 # ---- PACKAGE ----
 
@@ -333,7 +435,7 @@ $(ESP32)/ESP32forth.zip: $(ESP32)/ESP32forth/ESP32forth.ino
 ARCHIVE=gs://eforth/releases
 GSUTIL=CLOUDSDK_CORE_PROJECT=eforth gsutil
 GSUTIL_CP=$(GSUTIL) \
-          -h "Cache-Control:public, max-age=3600" \
+          -h "Cache-Control:public, max-age=60" \
           cp -a public-read
 
 publish-esp32: $(ESP32)/ESP32forth.zip
@@ -367,7 +469,7 @@ publish-windows: $(WINDOWS)/uEf32.exe $(WINDOWS)/uEf64.exe
     $(ARCHIVE)/uEf64-$(VERSION).exe
 
 publish-index: | $(GEN)
-	$(GSUTIL) ls gs://eforth/releases | tools/webindex.py >$(GEN)/archive.html
+	$(GSUTIL) ls -l gs://eforth/releases | tools/webindex.py >$(GEN)/archive.html
 	$(GSUTIL_CP) \
     $(GEN)/archive.html \
     gs://eforth/releases/archive.html
@@ -379,7 +481,7 @@ publish: publish-esp32 publish-linux publish-windows publish-index
 $(DEPLOY):
 	mkdir -p $@
 
-REPLACE = common/replace.js \
+REPLACE = tools/replace.js \
           COMMON=@site/common.html \
           POSIX_COMMON=@site/posix_common.html \
           DESKTOP_COMMON=@site/desktop_common.html \
@@ -412,3 +514,7 @@ $(DEPLOY)/app.yaml: $(RES)/eforth.ico \
 deploy: all
 	cd out/deploy && gcloud app deploy -q --project esp32forth *.yaml
 	cd out/deploy && gcloud app deploy -q --project eforth *.yaml
+
+# ---- INSTALL ----
+install: $(POSIX)/ueforth
+	sudo cp $< /usr/bin/ueforth

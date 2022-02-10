@@ -12,14 +12,8 @@
 \ See the License for the specific language governing permissions and
 \ limitations under the License.
 
-( Arguments )
-internals definitions
-: 'argc ( -- a ) 'sys 9 cells + ;
-: 'argv ( -- a ) 'sys 10 cells + ;
-forth definitions internals
-: argc ( -- n ) 'argc @ ;
-: argv ( n -- a n ) cells 'argv @ + @ z>s ;
+( Words with OS assist )
+: allocate ( n -- a ior ) malloc dup 0= ;
+: free ( a -- ior ) sysfree 0 ;
+: resize ( a n -- a ior ) realloc dup 0= ;
 
-( Load Libraries )
-: xlib   s" posix/xlib_test.fs" included ;
-forth

@@ -95,35 +95,210 @@ Download the <a href="https://www.arduino.cc/en/software">Arduino IDE</a> for yo
 
 <p>
 Go to <b>File &gt; Preferences</b>.<br/>
-Under <b>Additional Board Manager URLs</b> enter: <code>https://dl.espressif.com/dl/package_esp32_index.json</code>
+Under <b>Additional Board Manager URLs</b> add:
+<ul>
+  <li>For ESP32 - <code>https://dl.espressif.com/dl/package_esp32_index.json</code></li>
+  <li>For ESP32-S2 or ESP32-C3 - <code>https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_dev_index.json</code></li>
+</ul>
 </p>
 
 <p>
-Choose these options under Tools.
-
-<ul>
-   <li><b>ESP32 Dev Module or similar (may work better with your particular board)</b>
-     <ul>
-       <li><b>Board:</b> ESP32 Dev Module</li>
-       <li><b>Partition Scheme:</b> No OTA (2M APP, 2M SPIFFS) <b>&larr; Non-default</b></li>
-       <small>
-       <li><b>Upload Speed:</b> 921600</li>
-       <li><b>CPU Frequency:</b> 240MHz</li>
-       <li><b>Flash Frequency:</b> 80MHz</li>
-       <li><b>Flash Mode:</b> QIO</li>
-       <li><b>Flash Size:</b> 4MB</li>
-       <li><b>Core Debug Level:</b> None</li>
-       <li><b>PSRAM:</b> Disabled</li>
-       </small>
-     </ul>
-   </li>
-   <li><b>ESP32-CAM</b>
-     <ul>
-       <li><b>Board:</b> AI Thinker ESP32-CAM</li>
-     </ul>
-   </li>
-</ul>
+Select your serial port under <b>Tools &gt; Port</b>.
 </p>
+
+<p>
+Under <b>Tools</b> choose board and settings as below under <b>Tools</b>.
+</p>
+
+<table>
+  <tr>
+    <th>BOARD</th>
+    <th>ESP32 Version</th>
+    <th>Tools Settings</th>
+  </tr>
+
+  <tr>
+    <td>
+      <b>OTHER ESP32-XXX BOARDS</b><br/>
+      Use a more exact board selection or consult documentation to choose equivalent Dev Module settings.
+      Your mileage may vary.
+      <br/>
+      <b style="color: red">NOTE: Not all ESP-32 boards are compatible with Arduino.</b>
+    </td>
+    <td>2.0.1</td>
+    <td>
+      <small>
+        <b>Board:</b> <span class="hilit">Your board type OR closest Dev Module</span><br/>
+        <b>Partition Scheme:</b> <span class="hilit">Favor more App storage if option available</span><br/>
+      </small>
+    </td>
+  </tr>
+
+  <tr>
+    <td>
+      <b>ESP32-WROOM</b><br/>
+      <a href="static/esp32-wroom.jpg" style="border: 0"><img src="static/esp32-wroom.jpg" width="100"></a>
+    </td>
+    <td>1.0.6</td>
+    <td>
+      <small>
+        <b>Board:</b> <span class="hilit">ESP32 Dev Module</span><br/>
+        <b>Partition Scheme:</b> <span class="hilit">No OTA (2M APP, 2M SPIFFS) <b>&larr; Non-default</b></span><br/>
+        <b>Upload Speed:</b> 921600<br/>
+        <b>CPU Frequency:</b> 240MHz<br/>
+        <b>Flash Frequency:</b> 80MHz<br/>
+        <b>Flash Mode:</b> QIO<br/>
+        <b>Flash Size:</b> 4MB (32Mb)<br/>
+        <b>Core Debug Level:</b> None<br/>
+        <b>PSRAM:</b> Disable<br/>
+        <hr/>
+        <i>
+          <b>Arduino Runs On:</b> Core 1<br/>
+          <b>Events Run On:</b> Core 1<br/>
+        </i>
+      </small>
+    </td>
+  </tr>
+
+  <tr>
+    <td>
+      <b>ESP32-WROVER</b><br/>
+    </td>
+    <td>1.0.6</td>
+    <td>
+      <small>
+        <b>Board:</b> <span class="hilit">ESP32 Dev Module</span><br/>
+        <b>Partition Scheme:</b> <span class="hilit">No OTA (2M APP, 2M SPIFFS) <b>&larr; Non-default</b></span><br/>
+        <b>Upload Speed:</b> 921600<br/>
+        <b>CPU Frequency:</b> 240MHz<br/>
+        <b>Flash Frequency:</b> 80MHz<br/>
+        <b>Flash Mode:</b> QIO<br/>
+        <b>Flash Size:</b> 4MB (32Mb)<br/>
+        <b>Core Debug Level:</b> None<br/>
+        <b>PSRAM:</b> <span class="hilit">Enabled</span><br/>
+        <hr/>
+        <i>
+          <b>Arduino Runs On:</b> Core 1<br/>
+          <b>Events Run On:</b> Core 1<br/>
+        </i>
+      </small>
+    </td>
+  </tr>
+
+  <tr>
+    <td>
+      <b>ESP32-CAM</b><br/>
+      <a href="static/esp-cam-front.jpg" style="border: 0"><img src="static/esp-cam-front.jpg" width="100"></a>
+      <a href="static/esp-cam-back.jpg" style="border: 0"><img src="static/esp-cam-back.jpg" width="100"></a>
+      <a href="static/esp-cam-wiring.jpg" style="border: 0"><img src="static/esp-cam-wiring.jpg" width="200"></a>
+    </td>
+    <td>1.0.6</td>
+    <td>
+      <small>
+        <b>Board:</b> <span class="hilit">AI Thinker ESP32-CAM</span><br/>
+      </small>
+    </td>
+  </tr>
+
+  <tr>
+    <td>
+      <b>ESP32-MINI-1</b><br/>
+      <b>ESP32-SOLO-1</b><br/>
+      <a href="static/esp32-mini-1.jpg" style="border: 0"><img src="static/esp32-mini-1.jpg" width="100"></a>
+      <b style="color: red">NOT CURRENTLY SUPPORTED</b>
+    </td>
+    <td>N/A</td>
+    <td style="background-color: red; color: yellow">
+      <b>NOT CURRENTLY SUPPORTED</b><br/>
+      Arduino builds ESP32 assuming dual core, but the SOLO and MINI have only one core.
+    </td>
+  </tr>
+
+  <tr>
+    <td>
+      <b>ESP32-S2-WROOM</b><br/>
+      <a href="static/esp32-s2-wroom.jpg" style="border: 0"><img src="static/esp32-s2-wroom.jpg" width="100"></a>
+    </td>
+    <td>2.0.1</td>
+    <td>
+      <small>
+        <b>Board:</b> <span class="hilit">ESP32S2 Dev Module</span><br/>
+        <b>Partition Scheme:</b> <span class="hilit">No OTA (2M APP, 2M SPIFFS) <b>&larr; Non-default</b></span><br/>
+        <b>Upload Speed:</b> 921600<br/>
+        <b>USB CDC On Boot:</b> Disabled<br/>
+        <b>USB Firmware MSC On Boot:</b> Disabled<br/>
+        <b>USB DFU On Boot:</b> Disabled<br/>
+        <b>Upload Mode:</b> UART0<br/>
+        <b>CPU Frequency:</b> 240MHz<br/>
+        <b>Flash Frequency:</b> 80MHz<br/>
+        <b>Flash Mode:</b> QIO<br/>
+        <b>Flash Size:</b> 4MB (32Mb)<br/>
+        <b>Core Debug Level:</b> None<br/>
+        <b>PSRAM:</b> Disabled<br/>
+      </small>
+    </td>
+  </tr>
+
+  <tr>
+    <td>
+      <b>ESP32-S2-WROVER</b><br/>
+      <a href="static/esp32-s2-wrover.jpg" style="border: 0"><img src="static/esp32-s2-wrover.jpg" width="100"></a>
+    </td>
+    <td>2.0.1</td>
+    <td>
+      <small>
+        <b>Board:</b> <span class="hilit">ESP32S2 Dev Module</span><br/>
+        <b>Partition Scheme:</b> <span class="hilit">No OTA (2M APP, 2M SPIFFS) <b>&larr; Non-default</b></span><br/>
+        <b>Upload Speed:</b> 921600<br/>
+        <b>USB CDC On Boot:</b> Disabled<br/>
+        <b>USB Firmware MSC On Boot:</b> Disabled<br/>
+        <b>USB DFU On Boot:</b> Disabled<br/>
+        <b>Upload Mode:</b> UART0<br/>
+        <b>CPU Frequency:</b> 240MHz<br/>
+        <b>Flash Frequency:</b> 80MHz<br/>
+        <b>Flash Mode:</b> QIO<br/>
+        <b>Flash Size:</b> 4MB (32Mb)<br/>
+        <b>Core Debug Level:</b> None<br/>
+        <b>PSRAM:</b> <span class="hilit">Enabled</span><br/>
+      </small>
+    </td>
+  </tr>
+
+  <tr>
+    <td>
+      <table style="border: 0">
+        <tr>
+          <td style="border: 0">
+            <b>ESP32-C3-MINI-1</b><br/>
+            <b>(ESP32-C3-DevKitM-1)</b><br/>
+            <a href="static/esp32-c3-mini-1.jpg" style="border: 0"><img src="static/esp32-c3-mini-1.jpg" width="100"></a>
+          </td>
+          <td style="border: 0">
+            <b>ESP32-C3-WROOM-02</b><br/>
+            <b>(ESP32-C3-DevKitC-02)</b><br/>
+            <a href="static/esp32-c3-wroom-02.jpg" style="border: 0"><img src="static/esp32-c3-wroom-02.jpg" width="100"></a>
+          </td>
+        </tr>
+      </table>
+    </td>
+    </td>
+    <td>2.0.1</td>
+    <td>
+      <small>
+        <b>Board:</b> <span class="hilit">ESP32C3 Dev Module</span><br/>
+        <b>Partition Scheme:</b> <span class="hilit">No OTA (2M APP, 2M SPIFFS) <b>&larr; Non-default</b></span><br/>
+        <b>Upload Speed:</b> 921600<br/>
+        <b>USB CDC On Boot:</b> Disabled<br/>
+        <b>CPU Frequency:</b> 160MHz<br/>
+        <b>Flash Frequency:</b> 80MHz<br/>
+        <b>Flash Mode:</b> QIO<br/>
+        <b>Flash Size:</b> 4MB (32Mb)<br/>
+        <b>Core Debug Level:</b> None<br/>
+        <b>PSRAM:</b> Disabled<br/>
+      </small>
+    </td>
+  </tr>
+</table>
 
 <h2>Use</h2>
 
@@ -280,6 +455,41 @@ WiFi.getTxPower ( -- powerx4 )   Get power x4
 MDNS.begin ( name-z -- )   Start multicast dns
 </pre>
 
+<h5>SPI Flash</h5>
+These words are inside the <code>spi_flash</code> vocabulary.
+<pre>
+spi_flash_init ( -- ) Init driver access.
+spi_flash_get_chip_size ( -- n ) Get flash size.
+spi_flash_erase_sector ( sector -- err ) Erase a sector.
+spi_flash_erase_range ( addr size -- err ) Erase a range.
+spi_flash_write ( destaddr src size -- err ) Write to flash.
+spi_flash_write_encrypted ( destaddr src size -- err ) Write encrypted.
+spi_flash_read ( srcaddr dst size -- err ) Read from flash.
+spi_flash_read_encrypted ( srcaddr dst size -- err ) Read encrypted.
+spi_flash_mmap ( srcaddr size memtype out outhandle -- err ) Map region.
+spi_flash_mmap_pages ( pages pages# memtype out outhandle -- err ) Map pages.
+spi_flash_munmap ( handle -- ) Unmap region.
+spi_flash_mmap_dump ( -- ) Dump memory map.
+spi_flash_mmap_get_free_pages ( memtype -- n ) Get free pages.
+spi_flash_cache2phys ( a -- addr ) Get flash addr.
+spi_flash_phys2cache ( addr memtype -- a ) Get mapped flash addr.
+spi_flash_cache_enabled ( -- f ) Is flash enabled.
+
+esp_partition_t_size ( -- n ) sizeof(esp_parition_t).
+esp_partition_find ( type subtype szlabel -- it ) Get partition iterator.
+esp_partition_find_first ( type subtype szlabel -- part ) Get first partition.
+esp_partition_get ( it -- part ) Get current partition.
+esp_partition_next ( it -- it' ) Get next partition.
+esp_partition_iterator_release ( it -- ) Free iterator.
+esp_partition_verify ( part -- part' ) Verify partition.
+esp_partition_read ( part srcoff dst size -- err ) Read from partition.
+esp_partition_write ( part dstoff src size -- err ) Write to partition.
+esp_partition_erase_range ( part start size -- err ) Erase range.
+esp_partition_mmap ( part off size memtype out outhandle -- err ) Map memory.
+esp_partition_get_sha256 ( part a -- err ) Get sha256 digest.
+esp_partition_check_identity ( part part -- f ) Check partitions for equality.
+</pre>
+
 <h5>SPIFFS</h5>
 These words are inside the <code>SPIFFS</code> vocabulary.
 <pre>
@@ -290,8 +500,9 @@ SPIFFS.totalBytes ( -- n )
 SPIFFS.usedBytes ( -- n )
 </pre>
 
-<h5>WebServer</h5>
+<h5>WebServer (DEPRECATED)</h5>
 These words are inside the <code>WebServer</code> vocabulary.
+<p><b>Removed in 7.0.6.14</b>, use httpd instead.</p>
 <pre>
 WebServer.new ( port -- ws )   Allocate new webserver object
 WebServer.delete ( ws -- )   Delete webserver object
@@ -309,6 +520,45 @@ WebServer.sendHeader ( name-z value-z fist ws -- )
 WebServer.send ( code mimetype data ws -- )
 WebServer.sendContent ( z ws -- )
 WebServer.method ( ws -- n )   GET / POST etc.
+</pre>
+
+<h5>httpd</h5>
+These words are inside the <code>httpd</code> vocabulary.
+<pre>
+server ( port -- ) Run a webserver on a port (in background, returns immediately).
+handleClient ( -- f ) Wait for a client to connect, true if connected.
+path ( -- a n ) Get request path.
+method ( -- a n ) Get request method (GET/POST).
+header ( a n -- a n ) Get header value or empty string.
+body ( -- a n ) Get request body.
+response ( mime mime# result result# status -- ) Respond with a particular mime type result and status.
+ok-response ( mime mime# ) Response with a HTTP 200.
+bad-response ( -- ) Response with HTTP 400 Bad request.
+notfound-response ( -- ) Response with HTTP 404 Not found.
+send ( a n -- ) Send response bytes.
+
+NOTE: You may want to use this feature in tandem with tasks / streams.
+
+Example:
+
+also httpd
+
+: handle-index
+  s" text/html" ok-response r|
+<html>
+  <body>Hi!</body>
+</html>
+| send ;
+
+: handle1
+  ." Got a request for: " path type cr
+  path s" /" str= if handle-index exit then
+  notfound-response
+;
+
+: run  8080 server
+       begin handleClient if handle1 then pause again ;
+run
 </pre>
 
 <h5>Wire</h5>
@@ -360,11 +610,31 @@ server ( port -- ) Start an image server at port,
                    e.g. http://IP/image will produce an image
 </pre>
 
+<h5>SD</h5>
+These words are inside the <code>SD</code> vocabulary.
+They allow use of an SDcard over SPI.
+<pre>
+SD.begin ( -- ok )   uses all the defaults "/sd" etc.
+SD.beginDefaults ( -- sspin SPIClass frequency mountpointsz maxfiles format_if_empty )
+                 (    SS    SPI      4000000   "/sd"        5        false )
+SD.beginFull ( sspin SPIClass frequency mountpoint maxfiles format_if_empty -- ok )
+SD.end ( -- )
+SD.cardType ( -- n )
+SD.totalBytes ( -- n )
+SD.usedBytes ( -- n )
+</pre>
+
 <h5>SD_MMC</h5>
-These words are inside the <code>SD_MMC</code> vocabulary.<br/>
+These words are inside the <code>SD_MMC</code> vocabulary.
+They allow use of an SDcard over MMC internal interface.
+<br/>
 Note, SD_MMC is unavailable on ESP32-S2 and ESP32-C3.
 <pre>
-SD_MMC.begin ( mount mode1bit )   default mode1bit=false
+SD_MMC.begin ( -- ok )   uses all the defaults "/sdcard" etc.
+SD_MMC.beginDefaults ( -- mountsz   mode1bit format_if_fail )
+                     (    "/sdcard" false    false )
+                     (    sdmmc_freq not supported for generality )
+SD_MMC.beginFull ( mountsz mode1bit format_if_fail -- ok )
 SD_MMC.end ( -- )
 SD_MMC.cardType ( -- n )
 SD_MMC.totalBytes ( -- n )
@@ -387,7 +657,8 @@ pinchange ( xt pin -- ) Call xt when pin changes.
 ' test 17 pinchange
 </pre>
 
-<p>Low Level words:</p>
+<h5 id="interrupts">Interrupts</h5>
+These words are inside the <code>interrupts</code> vocabulary.
 <pre>
 ESP_INTR_FLAG_DEFAULT -- Default handler allows per pin routing
 
@@ -438,8 +709,69 @@ gpio_get_drive_capability ( pin cap* -- 0/err )
 
 esp_intr_alloc ( source flags xt args handle* -- 0/err )
 esp_intr_free ( handle -- 0/err )
+</pre>
 
+<h5 id="timers">Timers</h5>
+These words are inside the <code>timers</code> vocabulary.
+
+<pre>
 timer_isr_register ( group timer xt arg ret -- 0/err )
+</pre>
+
+<h5 id="rmt">RMT</h5>
+These words are inside the <code>RMT</code> vocabulary.
+
+<pre>
+rmt_set_clk_div ( channel div8 -- err )
+rmt_get_clk_div ( channel @div8 -- err )
+rmt_set_rx_idle_thresh ( channel thresh16 -- err )
+rmt_get_rx_idle_thresh ( channel @thresh16 -- err )
+rmt_set_mem_block_num ( channel memnum8 -- err )
+rmt_get_mem_block_num ( channel @memnum8 -- err )
+rmt_set_tx_carrier ( channel enable highlev lowlev carrierlev -- err )
+rmt_set_mem_pd ( channel f -- err )
+rmt_get_mem_pd ( channel @f -- err )
+rmt_tx_start ( channel f -- err )
+rmt_tx_stop ( channel -- err )
+rmt_rx_start ( channel f -- err )
+rmt_rx_stop ( channel -- err )
+rmt_tx_memory_reset ( channel -- err )
+rmt_rx_memory_reset ( channel -- err )
+rmt_set_memory_owner ( channel owner -- err )
+rmt_get_memory_owner ( channel @owner -- err )
+rmt_set_tx_loop_mode ( channel f -- err )
+rmt_get_tx_loop_mode ( channel @f -- err )
+rmt_set_rx_filter ( channel enable thresh8 -- err )
+rmt_set_source_clk ( channel baseclk -- err )
+rmt_get_source_clk ( channel @baseclk -- err )
+rmt_set_idle_level ( channel enable level -- err )
+rmt_get_idle_level ( channel @enable @level -- err )
+rmt_get_status ( channel @status -- err )
+rmt_set_rx_intr_en ( channel enable -- err )
+rmt_set_err_intr_en ( channel enable -- err )
+rmt_set_tx_intr_en ( channel enable -- err )
+rmt_set_tx_thr_intr_en (channel enable thresh -- err )
+rmt_set_gpio ( channel mode gpio# invertsig -- err )
+rmt_config ( rmt_config_t* )
+rmt_isr_register ( fn arg allocflags handle -- err )
+rmt_isr_deregister ( handle -- err )
+rmt_fill_tx_items ( channel @items items# offset -- err )
+rmt_driver_install ( channel rxbufsize allocflags -- err )
+rmt_driver_uinstall ( channel -- err )
+rmt_get_channel_status ( channel @status -- err )
+rmt_get_counter_clock ( channel @clockhz -- err )
+rmt_write_items ( channel @items items# wait -- err )
+rmt_wait_tx_done ( channel time -- err )
+rmt_get_ringbuf_handle ( channel @handle -- err )
+rmt_translator_init ( channel fn -- err )
+rmt_translator_set_context ( channel @context -- err )
+rmt_translator_get_context ( channel @@context -- err )
+rmt_write_sample ( channel src src# wait -- err )
+rmt_register_tx_end_callback --- NOT SUPPORTED
+rmt_memory_rw_rst --- DEPRECATED USE rmt_tx_memory_reset or rmt_rx_memory_reset
+rmt_set_intr_enable_mask --- DEPRECATED interrupt handled by driver
+rmt_clr_intr_enable_mask --- DEPRECATED interrupt handled by driver
+rmt_set_pin --- DEPRECATED use rmt_set_gpio instead
 </pre>
 
 <h5 id="tasks">Tasks</h5>

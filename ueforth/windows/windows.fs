@@ -59,6 +59,7 @@ z" User32.dll" dll User32
 z" MessageBoxA" 4 User32 MessageBoxA
 
 z" Kernel32.dll" dll Kernel32
+
 z" AllocConsole" 0 Kernel32 AllocConsole
 z" ExitProcess" 1 Kernel32 ExitProcess
 z" GetStdHandle" 1 Kernel32 GetStdHandle
@@ -79,6 +80,25 @@ z" MoveFileA" 2 Kernel32 MoveFileA
 z" SetFilePointer" 4 Kernel32 SetFilePointer
 z" SetEndOfFile" 1 Kernel32 SetEndOfFile
 z" GetFileSize" 2 Kernel32 GetFileSize
+z" GetTickCount" 0 Kernel32 GetTickCount
+
+z" GetCommandLineW" 0 Kernel32 GetCommandLineW
+
+z" Shell32.dll" dll Shell32
+z" CommandLineToArgvW" 2 Shell32 CommandLineToArgvW
+
+variable wargc  variable wargv
+GetCommandLineW wargc CommandLineToArgvW wargv !
+: wz>sz ( a -- a n )
+   here swap begin dup sw@ 0<> while dup sw@ c, 2 + repeat drop 0 c, align ;
+: wargs-convert ( dst )
+   wargv @ wargc @ for aft
+      dup @ wz>sz >r swap r> over ! cell+ swap cell+
+   then next 2drop ;
+also internals
+wargc @ 'argc !
+here 'argv ! wargc @ cells allot
+'argv @ wargs-convert
 
 AllocConsole drop
 STD_INPUT_HANDLE GetStdHandle constant stdin
@@ -92,20 +112,23 @@ stdout console-mode GetConsoleMode drop
 stdout console-mode @ ENABLE_VIRTUAL_TERMINAL_PROCESSING or SetConsoleMode drop
 
 : win-type ( a n -- ) stdout -rot NULL NULL WriteFile drop ;
-' win-type is type
 : raw-key ( -- n ) 0 >r stdin rp@ 1 NULL NULL ReadFile drop r> ;
 : win-key? ( -- f ) stdin 0 WaitForSingleObject 0= ;
-' win-key? is key?
 : win-key ( -- n ) raw-key dup 13 = if drop nl then ;
-' win-key is key
 : win-bye ( -- ) 0 ExitProcess drop ;
-' win-bye is bye
--1 echo !
 
-ansi
-: set-title ( a n -- ) esc ." ]0;" type bel ;
-windows
-s" uEforth" set-title
+also forth definitions
+: default-type win-type ;
+: default-key win-key ;
+: default-key? win-key? ;
+: ms-ticks ( -- n ) GetTickCount ;
+only windows definitions
+' default-type is type
+' default-key is key
+' default-key? is key?
+' win-bye is bye
+
+-1 echo !
 
 ( Window File Specific )
 1 constant FILE_SHARE_READ
@@ -126,39 +149,40 @@ $80 constant FILE_ATTRIBUTE_NORMAL
 forth definitions windows
 
 ( Generic Files )
-$80000000 constant r/o  ( GENERIC_READ )
-$40000000 constant w/o  ( GENERIC_WRITE )
-r/o w/o or constant r/w
-: open-file ( a n fam -- fh ior )
+$80000000 constant R/O ( GENERIC_READ )
+$40000000 constant W/O  ( GENERIC_WRITE )
+R/O W/O or constant R/W
+: BIN ( fh -- fh ) ;
+: CLOSE-FILE ( fh -- ior ) CloseHandle 0=ior ;
+: FLUSH-FILE ( fh -- ior ) FlushFileBuffers 0=ior ;
+: OPEN-FILE ( a n fam -- fh ior )
    >r s>z r> FILE_SHARE_READ FILE_SHARE_WRITE or NULL
    OPEN_EXISTING FILE_ATTRIBUTE_NORMAL NULL CreateFileA d0<ior ;
-: create-file ( a n fam -- fh ior )
+: CREATE-FILE ( a n fam -- fh ior )
    >r s>z r> FILE_SHARE_READ FILE_SHARE_WRITE or NULL
    CREATE_ALWAYS FILE_ATTRIBUTE_NORMAL NULL CreateFileA d0<ior ;
-: close-file ( fh -- ior ) CloseHandle 0=ior ;
-: flush-file ( fh -- ior ) FlushFileBuffers 0=ior ;
-: delete-file ( a n -- ior ) s>z DeleteFileA 0=ior ;
-: rename-file ( a n a n -- ior ) s>z -rot s>z swap MoveFileA 0=ior ;
-: read-file ( a n fh -- n ior ) -rot 0 >r rp@ NULL ReadFile r> swap 0=ior ;
-: write-file ( a n fh -- ior )
+: DELETE-FILE ( a n -- ior ) s>z DeleteFileA 0=ior ;
+: RENAME-FILE ( a n a n -- ior ) s>z -rot s>z swap MoveFileA 0=ior ;
+: WRITE-FILE ( a n fh -- ior )
    -rot dup >r 0 >r rp@ NULL WriteFile
    if r> r> <> else rdrop rdrop GetLastError then ;
-: file-position ( fh -- n ior )
+: READ-FILE ( a n fh -- n ior ) -rot 0 >r rp@ NULL ReadFile r> swap 0=ior ;
+: FILE-POSITION ( fh -- n ior )
    0 NULL FILE_CURRENT SetFilePointer dup invalid?ior ;
-: reposition-file ( n fh -- ior )
+: REPOSITION-FILE ( n fh -- ior )
    swap NULL FILE_BEGIN SetFilePointer invalid?ior ;
-: resize-file ( n fh -- ior )
+: RESIZE-FILE ( n fh -- ior )
    dup file-position dup if drop 2drop 1 ior exit else drop then >r
    dup -rot reposition-file if rdrop drop 1 ior exit then
    dup SetEndOfFile 0= if rdrop drop 1 ior exit then
    r> swap reposition-file ;
-: file-size ( fh -- n ior ) NULL GetFileSize dup invalid?ior ;
+: FILE-SIZE ( fh -- n ior ) NULL GetFileSize dup invalid?ior ;
+: NON-BLOCK ( fh -- ior ) 1 throw ;  ( IMPLEMENT! )
 
 ( Other Utils )
 : ms ( n -- ) Sleep ;
 
-forth
+only forth
 
 ( Setup entry )
-: ok   ." uEforth v{{VERSION}} - rev {{REVISION}}" cr prompt refill drop quit ;
-' forth ( leave on stack for fini.fs )
+internals : ok   ." uEforth" raw-ok ; forth

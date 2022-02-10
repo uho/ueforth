@@ -12,11 +12,12 @@
 \ See the License for the specific language governing permissions and
 \ limitations under the License.
 
-( Camera Server )
-DEFINED? camera [IF]
+( Lazy loaded Camera Server )
+: camera-server r~
 
+camera httpd
 vocabulary camera-server   camera-server definitions
-also camera also httpd
+  also camera also httpd
 
 r|
 <!DOCTYPE html>
@@ -66,10 +67,11 @@ Frame();
 ;
 
 : handle1
-  handleClient
-  s" /" path str= if handle-index exit then
-  s" /image" path str= if handle-image exit then
-  notfound-response
+  handleClient if
+    s" /" path str= if handle-index exit then
+    s" /image" path str= if handle-image exit then
+    notfound-response
+  then
 ;
 
 : do-serve    begin ['] handle1 catch drop pause again ;
@@ -81,5 +83,5 @@ Frame();
 ;
 
 only forth definitions
-
-[THEN]
+camera-server
+~ evaluate ;

@@ -12,7 +12,9 @@
 \ See the License for the specific language governing permissions and
 \ limitations under the License.
 
-( HTTP Daemon )
+( Lazy loaded HTTP Daemon )
+: httpd r|
+
 vocabulary httpd   httpd definitions also sockets
 
 1 constant max-connections
@@ -30,16 +32,20 @@ sockaddr httpd-port   sockaddr client   variable client-len
 
 : handleClient
   clientfd close-file drop
+  -1 to clientfd
   sockfd client client-len sockaccept
-  dup 0< if drop exit then to clientfd
-  chunk chunk-size 0 fill
+  dup 0< if drop 0 exit then
+  to clientfd
+  chunk chunk-size erase
   chunk chunk-size clientfd read-file throw to chunk-filled
+  -1
 ;
 
 : server ( port -- )
   httpd-port ->port!  ." Listening on port " httpd-port ->port@ . cr
   AF_INET SOCK_STREAM 0 socket to sockfd
-  ( sockfd SOL_SOCKET SO_REUSEADDR 1 >r rp@ 4 setsockopt rdrop throw )
+(  sockfd SOL_SOCKET SO_REUSEADDR 1 >r rp@ 4 setsockopt rdrop throw )
+  sockfd non-block throw
   sockfd httpd-port sizeof(sockaddr_in) bind throw
   sockfd max-connections listen throw
 ;
@@ -73,13 +79,15 @@ variable goal   variable goal#
 : path ( -- a n ) 0 bl skipover bl eat rot drop ;
 : send ( a n -- ) client-type ;
 
-: response ( mime$ result$ status mime$ -- )
+: response ( mime$ result$ status -- )
   s" HTTP/1.0 " client-type <# #s #> client-type
   bl client-emit client-type client-cr
   s" Content-type: " client-type client-type client-cr
   client-cr ;
 : ok-response ( mime$ -- ) s" OK" 200 response ;
-: bad-response ( mime$ -- ) s" text/plain" s" Bad Request" 400 response ;
-: notfound-response ( mime$ -- ) s" text/plain" s" Not Found" 404 response ;
+: bad-response ( -- ) s" text/plain" s" Bad Request" 400 response ;
+: notfound-response ( -- ) s" text/plain" s" Not Found" 404 response ;
 
 only forth definitions
+httpd
+| evaluate ;

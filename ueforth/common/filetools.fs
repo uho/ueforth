@@ -20,11 +20,14 @@
 
 internals definitions
 ( Leave some room for growth of starting system. )
-$8000 constant growth-gap
-here growth-gap + growth-gap 1- + growth-gap 1- invert and constant saving-base
+0 value saving-base
 : park-heap ( -- a ) saving-base ;
 : park-forth ( -- a ) saving-base cell+ ;
-: 'cold ( -- a ) saving-base 2 cells + ;   0 'cold !
+: 'cold ( -- a ) saving-base 2 cells + ;
+: setup-saving-base
+  here to saving-base  16 cells allot  0 'cold ! ;
+
+' forth >body constant forth-wordlist
 
 : save-name
   'heap @ park-heap !

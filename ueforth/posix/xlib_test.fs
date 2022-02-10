@@ -1,3 +1,4 @@
+#! /usr/bin/ueforth
 \ Copyright 2021 Bradley D. Nelson
 \
 \ Licensed under the Apache License, Version 2.0 (the "License");
@@ -47,7 +48,8 @@ create event xevent-size allot
   display gc white XSetBackground drop
   display window gc 0 0 width @ 2/ height @ 2/ XFillRectangle drop
 ;
-: de event xevent-size
+: handle-event
+  event xevent-size
   event c@ .
   event c@ Expose = if
     draw
@@ -60,12 +62,13 @@ create event xevent-size allot
   event c@ MotionNotify = if ." MotionNotify" then
   event c@ DestroyNotify = if ." DestroyNotify" then
   event c@ ConfigureNotify = if
-    event 3 16 * 8 + + l@ width !
-    event 3 16 * 12 + + l@ height !
+    event 3 16 * 8 + + sl@ width !
+    event 3 16 * 12 + + sl@ height !
     ." width & height: " width @ . height @ .
     ." ConfigureNotify"
   then
   event c@ MapNotify = if ." MapNotify" then
 cr ;
-: 1e display event XNextEvent drop de ;
-: gg begin draw 1e again ;
+: do-event display event XNextEvent drop handle-event ;
+: gg begin draw do-event again ;
+gg

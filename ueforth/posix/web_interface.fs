@@ -12,8 +12,11 @@
 \ See the License for the specific language governing permissions and
 \ limitations under the License.
 
-( Server Terminal )
+( Lazy loaded Server Terminal )
 
+defer web-interface
+:noname r~
+httpd
 also streams also httpd
 vocabulary web-interface   also web-interface definitions
 
@@ -47,11 +50,11 @@ body {
 <body>
 <h2>ESP32forth v7</h2>
 Upload File: <input id="filepick" type="file" name="files[]"></input><br/>
-<button onclick="ask('hex')">hex</button>
-<button onclick="ask('decimal')">decimal</button>
-<button onclick="ask('words')">words</button>
-<button onclick="ask('low led pin')">LED OFF</button>
-<button onclick="ask('high led pin')">LED ON</button>
+<button onclick="ask('hex\n')">hex</button>
+<button onclick="ask('decimal\n')">decimal</button>
+<button onclick="ask('words\n')">words</button>
+<button onclick="ask('low led pin\n')">LED OFF</button>
+<button onclick="ask('high led pin\n')">LED ON</button>
 <br/>
 <textarea id="output" readonly></textarea>
 <input id="prompt" type="prompt"></input><br/>
@@ -73,8 +76,9 @@ function httpPost(url, data, callback) {
   r.open('POST', url);
   r.send(data);
 }
+setInterval(function() { ask(''); }, 300);
 function ask(cmd, callback) {
-  httpPost('/input', cmd + '\n', function(data) {
+  httpPost('/input', cmd, function(data) {
     if (data !== null) { output.value += data; }
     output.scrollTop = output.scrollHeight;  // Scroll to the bottom
     if (callback !== undefined) { callback(); }
@@ -83,7 +87,7 @@ function ask(cmd, callback) {
 prompt.onkeyup = function(event) {
   if (event.keyCode === 13) {
     event.preventDefault();
-    ask(prompt.value);
+    ask(prompt.value + '\n');
     prompt.value = '';
   }
 };
@@ -102,14 +106,14 @@ filepick.onchange = function(event) {
   }
 };
 window.onload = function() {
-  ask('');
+  ask('\n');
   prompt.focus();
 };
 </script>
 | constant index-html# constant index-html
 
 variable webserver
-20000 constant out-size
+2000 constant out-size
 200 stream input-stream
 out-size stream output-stream
 create out-string out-size 1+ allot align
@@ -130,10 +134,11 @@ create out-string out-size 1+ allot align
 : serve-key ( -- n ) input-stream stream>ch ;
 
 : handle1
-  handleClient
-  s" /" path str= if handle-index exit then
-  s" /input" path str= if handle-input exit then
-  notfound-response
+  handleClient if
+    s" /" path str= if handle-index exit then
+    s" /input" path str= if handle-input exit then
+    notfound-response
+  then
 ;
 
 : do-serve    begin handle1 pause again ;
@@ -141,9 +146,12 @@ create out-string out-size 1+ allot align
 
 : server ( port -- )
    server
-   ['] serve-type is type
    ['] serve-key is key
+   ['] serve-type is type
    webserver-task start-task
 ;
 
 only forth definitions
+web-interface
+~ evaluate ; is web-interface
+

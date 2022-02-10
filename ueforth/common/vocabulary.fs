@@ -13,17 +13,24 @@
 \ limitations under the License.
 
 ( Implement Vocabularies )
+( normal: link, flags&len, code )
+( vocab:  link, flags&len, code | link , len=0, voclink )
 variable last-vocabulary
-current @ constant forth-wordlist
-: forth   forth-wordlist context ! ;
-: vocabulary ( "name" ) create 0 , current @ 2 cells + , current @ @ last-vocabulary !
-                        does> cell+ context ! ;
+: vocabulary ( "name" )
+  create current @ 2 cells + , 0 , last-vocabulary @ ,
+  current @ @ last-vocabulary !
+  does> context ! ;
 : definitions   context @ current ! ;
+vocabulary FORTH
+' forth >body @ >link ' forth >body !
+forth definitions
 
 ( Make it easy to transfer words between vocabularies )
 : xt-find& ( xt -- xt& ) context @ begin 2dup @ <> while @ >link& repeat nip ;
 : xt-hide ( xt -- ) xt-find& dup @ >link swap ! ;
-: xt-transfer ( xt --  ) dup xt-hide   current @ @ over >link& !   current @ ! ;
+8 constant BUILTIN_MARK
+: xt-transfer ( xt --  ) dup >flags BUILTIN_MARK and if drop exit then
+  dup xt-hide   current @ @ over >link& !   current @ ! ;
 : transfer ( "name" ) ' xt-transfer ;
 : }transfer ;
 : transfer{ begin ' dup ['] }transfer = if drop exit then xt-transfer again ;
@@ -32,7 +39,7 @@ current @ constant forth-wordlist
 : only   forth 0 context cell+ ! ;
 : voc-stack-end ( -- a ) context begin dup @ while cell+ repeat ;
 : also   context context cell+ voc-stack-end over - 2 cells + cmove> ;
-: sealed   0 last-vocabulary @ >body cell+ ! ;
+: sealed   0 last-vocabulary @ >body ! ;
 
 ( Hide some words in an internals vocabulary )
 vocabulary internals   internals definitions
@@ -42,18 +49,15 @@ variable scope   scope context cell - !
 
 transfer{
   xt-find& xt-hide xt-transfer
-  voc-stack-end forth-wordlist
-  last-vocabulary
-  branch 0branch donext dolit
-  'context 'notfound notfound
+  voc-stack-end last-vocabulary notfound
   immediate? input-buffer ?echo ?arrow. arrow
-  evaluate1 evaluate-buffer
-  'sys 'heap aliteral
+  evaluate-buffer aliteral
   leaving( )leaving leaving leaving,
-  (do) (?do) (+loop)
+  (do) (?do) (+loop) 
   parse-quote digit $@ raw.s
   tib-setup input-limit
-  [SKIP] [SKIP]'
+  [SKIP] [SKIP]' raw-ok boot-prompt free.
+  $place zplace BUILTIN_MARK
 }transfer
 forth definitions
 

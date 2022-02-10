@@ -28,23 +28,26 @@
 #endif
 
 #include "common/opcodes.h"
+#include "common/extra_opcodes.h"
 #include "common/floats.h"
 #include "common/calling.h"
 #include "common/calls.h"
 
 #define HEAP_SIZE (10 * 1024 * 1024)
-#define STACK_SIZE (64 * 1024)
+#define STACK_CELLS (8 * 1024)
 
 #define PLATFORM_OPCODE_LIST \
   Y(GETPROCADDRESS, \
       tos = (cell_t) GetProcAddress((HMODULE) *sp, (LPCSTR) tos); --sp) \
   Y(LOADLIBRARYA, \
       tos = (cell_t) LoadLibraryA((LPCSTR) tos)) \
-  FLOATING_POINT_LIST \
   CALLING_OPCODE_LIST \
+  FLOATING_POINT_LIST
+
+#define VOCABULARY_LIST V(forth) V(internals)
 
 #include "common/core.h"
-#include "windows/windows_interp.h"
+#include "windows/interp.h"
 
 #include "gen/windows_boot.h"
 
@@ -56,7 +59,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show) {
   void *heap = VirtualAlloc(
       (void *) 0x8000000, HEAP_SIZE,
       MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
-  forth_init(0, 0, heap, boot, sizeof(boot));
+  forth_init(0, 0, heap, HEAP_SIZE, boot, sizeof(boot));
   for (;;) { g_sys.rp = forth_run(g_sys.rp); }
 }
 

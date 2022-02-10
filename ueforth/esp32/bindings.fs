@@ -14,120 +14,89 @@
 
 ( Migrate various words to separate vocabularies, and constants )
 
-vocabulary Wire   Wire definitions
-transfer{
-  Wire.begin Wire.setClock Wire.getClock
-  Wire.setTimeout Wire.getTimeout
-  Wire.beginTransmission Wire.endTransmission
-  Wire.requestFrom Wire.write
-  Wire.available Wire.read
-  Wire.peek Wire.flush
-}transfer
+vocabulary ESP   ESP definitions
+transfer ESP-builtins
+only forth definitions
+
 forth definitions
 
-vocabulary WebServer   WebServer definitions
-transfer{
-  WebServer.arg WebServer.argi WebServer.argName
-  WebServer.new WebServer.delete
-  WebServer.begin WebServer.stop
-  WebServer.on WebServer.hasArg
-  WebServer.sendHeader WebServer.send WebServer.sendContent
-  WebServer.method WebServer.handleClient
-  WebServer.args WebServer.setContentLength
-}transfer
+vocabulary Wire   Wire definitions
+transfer wire-builtins
 forth definitions
 
 vocabulary WiFi   WiFi definitions
-
-transfer{
-  WiFi.config
-  WiFi.begin WiFi.disconnect
-  WiFi.status
-  WiFi.macAddress WiFi.localIP
-  WiFi.mode
-  WiFi.setTxPower WiFi.getTxPower
-}transfer
-
+transfer WiFi-builtins
 ( WiFi Modes )
 0 constant WIFI_MODE_NULL
 1 constant WIFI_MODE_STA
 2 constant WIFI_MODE_AP
 3 constant WIFI_MODE_APSTA
-
 forth definitions
 
-DEFINED? SD_MMC.begin [IF]
+vocabulary SD   SD definitions
+transfer SD-builtins
+forth definitions
+
 vocabulary SD_MMC   SD_MMC definitions
-transfer{
-  SD_MMC.begin SD_MMC.end
-  SD_MMC.totalBytes SD_MMC.usedBytes
-  SD_MMC.cardType
-}transfer
+transfer SD_MMC-builtins
 forth definitions
+
+vocabulary spi_flash   spi_flash definitions
+transfer spi_flash-builtins
+DEFINED? spi_flash_init [IF]
+0 constant SPI_PARTITION_TYPE_APP
+1 constant SPI_PARTITION_TYPE_DATA
+$ff constant SPI_PARTITION_SUBTYPE_ANY
+( Work around changing struct layout )
+: p>common ( part -- part' ) esp_partition_t_size 40 >= if cell+ then ;
+: p>type ( part -- n ) p>common @ ;
+: p>subtype ( part -- n ) p>common cell+ @ ;
+: p>address ( part -- n ) p>common 2 cells + @ ;
+: p>size ( part -- n ) p>common 3 cells + @ ;
+: p>label ( part -- a n ) p>common 4 cells + z>s ;
+: p. ( part -- )
+  base @ >r >r decimal
+  ." TYPE: " r@ p>type . ." SUBTYPE: " r@ p>subtype .
+  ." ADDR: " r@ hex p>address .  ." SIZE: " r@ p>size .
+  ." LABEL: " r> p>label type cr r> base ! ;
+: list-partition-type ( type -- )
+  SPI_PARTITION_SUBTYPE_ANY 0 esp_partition_find
+  begin dup esp_partition_get p. esp_partition_next dup 0= until drop ;
+: list-partitions   SPI_PARTITION_TYPE_APP list-partition-type
+                    SPI_PARTITION_TYPE_DATA list-partition-type ;
 [THEN]
+forth definitions
 
 vocabulary SPIFFS   SPIFFS definitions
-transfer{
-  SPIFFS.begin SPIFFS.end
-  SPIFFS.format
-  SPIFFS.totalBytes SPIFFS.usedBytes
-}transfer
+transfer SPIFFS-builtins
 forth definitions
 
 vocabulary ledc  ledc definitions
-transfer{
-  ledcSetup ledcAttachPin ledcDetachPin
-  ledcRead ledcReadFreq
-  ledcWrite ledcWriteTone ledcWriteNote
-}transfer
+transfer ledc-builtins
 forth definitions
 
 vocabulary Serial   Serial definitions
-transfer{
-  Serial.begin Serial.end
-  Serial.available Serial.readBytes
-  Serial.write Serial.flush
-}transfer
+transfer Serial-builtins
 forth definitions
 
 vocabulary sockets   sockets definitions
-transfer{
-  socket bind listen connect sockaccept select poll errno
-}transfer
+transfer sockets-builtins
 1 constant SOCK_STREAM
 2 constant AF_INET
 16 constant sizeof(sockaddr_in)
 1 constant SOL_SOCKET
 2 constant SO_REUSEADDR
-
 : bs, ( n -- ) dup 256 / c, c, ;
 : s, ( n -- ) dup c, 256 / c, ;
 : l, ( n -- ) dup s, 65536 / s, ;
 : sockaddr   create 16 c, AF_INET c, 0 bs, 0 l, 0 l, 0 l, ;
 : ->port@ ( a -- n ) 2 + >r r@ c@ 256 * r> 1+ c@ + ;
 : ->port! ( n a --  ) 2 + >r dup 256 / r@ c! r> 1+ c! ;
-
 forth definitions
 
 vocabulary interrupts   interrupts definitions
-transfer{
-  gpio_config
-  gpio_reset_pin gpio_set_intr_type
-  gpio_intr_enable gpio_intr_disable
-  gpio_set_level gpio_get_level
-  gpio_set_direction
-  gpio_set_pull_mode
-  gpio_wakeup_enable gpio_wakeup_disable
-  gpio_pullup_en gpio_pullup_dis
-  gpio_pulldown_en gpio_pulldown_dis
-  gpio_hold_en gpio_hold_dis
-  gpio_deep_sleep_hold_en gpio_deep_sleep_hold_dis
-  gpio_install_isr_service gpio_uninstall_isr_service
-  gpio_isr_handler_add gpio_isr_handler_remove
-  gpio_set_drive_capability gpio_get_drive_capability
-  esp_intr_alloc esp_intr_free
-}transfer
-
+transfer interrupts-builtins
+DEFINED? gpio_config [IF]
 0 constant ESP_INTR_FLAG_DEFAULT
 : ESP_INTR_FLAG_LEVELn ( n=1-6 -- n ) 1 swap lshift ;
 1 7 lshift constant ESP_INTR_FLAG_NMI
@@ -135,7 +104,6 @@ transfer{
 1 9 lshift constant ESP_INTR_FLAG_EDGE
 1 10 lshift constant ESP_INTR_FLAG_IRAM
 1 11 lshift constant ESP_INTR_FLAG_INTRDISABLED
-
 ( Prefix these with # because GPIO_INTR_DISABLE conflicts with a function. )
 0 constant #GPIO_INTR_DISABLE
 1 constant #GPIO_INTR_POSEDGE
@@ -143,45 +111,28 @@ transfer{
 3 constant #GPIO_INTR_ANYEDGE
 4 constant #GPIO_INTR_LOW_LEVEL
 5 constant #GPIO_INTR_HIGH_LEVEL
-
 ( Easy word to trigger on any change to a pin )
 ESP_INTR_FLAG_DEFAULT gpio_install_isr_service drop
 : pinchange ( xt pin ) dup #GPIO_INTR_ANYEDGE gpio_set_intr_type throw
                        swap 0 gpio_isr_handler_add throw ;
+[THEN]
+forth definitions
 
+vocabulary rmt   rmt definitions
+transfer rmt-builtins
 forth definitions
 
 vocabulary rtos   rtos definitions
-transfer{
-  xPortGetCoreID xTaskCreatePinnedToCore vTaskDelete
-}transfer
+transfer rtos-builtins
 forth definitions
 
-DEFINED? SerialBT.new [IF]
 vocabulary bluetooth   bluetooth definitions
-transfer{
-  SerialBT.new SerialBT.delete SerialBT.begin SerialBT.end
-  SerialBT.available SerialBT.readBytes SerialBT.write
-  SerialBT.flush SerialBT.hasClient
-  SerialBT.enableSSP SerialBT.setPin SerialBT.unpairDevice
-  SerialBT.connect SerialBT.connectAddr SerialBT.disconnect SerialBT.connected
-  SerialBT.isReady esp_bt_dev_get_address
-}transfer
+transfer bluetooth-builtins
 forth definitions
-[THEN]
 
-DEFINED? OledNew [IF]
 vocabulary oled   oled definitions
-transfer{
-  OledNew OledDelete
-  OledHOME OledCLS
-  OledTextc OledPrintln OledNumln OledNum
-  OledDisplay OledPrint
-  OledInvert OledTextsize OledSetCursor
-  OledPixel OledDrawL OledCirc OledCircF
-  OledRect OledRectF OledRectR OledRectrf
-}transfer
-
+transfer oled-builtins
+DEFINED? OledNew [IF]
 128 constant WIDTH
 64 constant HEIGHT
 -1 constant OledReset
@@ -200,15 +151,10 @@ transfer{
   0 0 OledSetCursor  ( Start at top-left corner )
   z" *Esp32forth*" OledPrintln OledDisplay
 ;
-forth definitions
 [THEN]
+forth definitions
 
 internals definitions
-transfer{
-  malloc sysfree realloc
-  heap_caps_malloc heap_caps_free heap_caps_realloc
-}transfer
-
 ( Heap Capabilities )
 binary
 0001 constant MALLOC_CAP_EXEC
@@ -223,4 +169,3 @@ binary
 010000000000000 constant MALLOC_CAP_RETENTION
 decimal
 forth definitions
-

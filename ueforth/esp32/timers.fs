@@ -12,7 +12,16 @@
 \ See the License for the specific language governing permissions and
 \ limitations under the License.
 
-vocabulary timers   timers definitions   also registers also interrupts
+internals definitions
+transfer timers-builtins
+forth definitions
+
+( Lazy loaded timers )
+: timers r|
+
+vocabulary timers   timers definitions
+  also registers also interrupts also internals
+transfer timers-builtins
 
 $3ff5f000 constant TIMG_BASE
 ( group n = 0/1, timer x = 0/1, watchdog m = 0-5 )
@@ -73,3 +82,5 @@ $3ff5f000 constant TIMG_BASE
 : rerun ( t -- ) 1 swap alarm-enable! ;
 
 only forth definitions
+timers
+| evaluate ;

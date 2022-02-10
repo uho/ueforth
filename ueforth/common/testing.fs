@@ -12,10 +12,21 @@
 \ See the License for the specific language governing permissions and
 \ limitations under the License.
 
-also ansi also posix
+also ansi also internals
+
+DEFINED? windows [IF]
+  also windows
+  : sysexit ( n -- ) ExitProcess ;
+[ELSE]
+  DEFINED? posix [IF]
+    also posix
+  [ELSE]
+    : sysexit ( n -- ) terminate ;
+  [THEN]
+[THEN]
 
 ( Support for eval tests )
-1000 constant expect-limit
+40000 constant expect-limit
 create expect-buffer expect-limit allot
 create result-buffer expect-limit allot
 variable expect-used   variable result-used
@@ -35,20 +46,40 @@ variable expect-used   variable result-used
 : expected ( -- a n ) expect-buffer expect-used @ ;
 : resulted ( -- a n ) result-buffer result-used @ ;
 : out:cr   nl expect-emit ;
-: out: ( "line" -- ) nl parse expect-type nl expect-emit ;
 : out:\ ( "line" -- ) nl parse expect-type ;
+: out: ( "line" -- ) out:\ out:cr ;
 variable confirm-old-type
 : confirm{   ['] type >body @ confirm-old-type ! ['] result-type is type ;
 : }confirm   confirm-old-type @ is type ;
 : expect-reset   0 expect-used ! 0 result-used ! ;
+: diverged ( a n a n -- a n )
+   begin
+      dup 0= if 2drop exit then
+      >r dup c@ >r rot dup c@ >r -rot r> r> <> r> swap if 2drop exit then
+      >r >r dup 0= if rdrop rdrop exit then r> r>
+      >r >r >r 1+ r> 1- r> 1+ r> 1-
+   again
+;
 : expect-finish   expected resulted str= if exit then }confirm
-   cr ." Expected:" cr expected type cr ." Resulted:" cr resulted type cr 1 throw ;
+   cr ." Expected:" cr expected resulted diverged type cr
+      ." Resulted:" cr resulted expected diverged type cr 1 throw ;
+
+( Better error asserts )
+: =assert ( actual expected -- )
+  2dup <> if }confirm ."   FAILURE! EXPECTED: " .
+                      ." ACTUAL: " . space 0 assert then 2drop ;
+: <assert ( actual expected -- )
+  2dup >= if }confirm ."   MUST BE LESS THAN: " .
+                      ." ACTUAL: " . space 0 assert then 2drop ;
+: >assert ( actual expected -- )
+  2dup <= if }confirm ."   MUST BE GREATER THAN: " .
+                      ." ACTUAL: " . space 0 assert then 2drop ;
 
 ( Input testing )
 create in-buffer 1000 allot
 variable in-head   variable in-tail
 : >in ( c -- ) in-buffer in-head @ + c!  1 in-head +! ;
-: in> ( -- c ) in-tail @ in-head @ < assert
+: in> ( -- c ) in-tail @ in-head @ <assert
                in-buffer in-tail @ + c@  1 in-tail +!
                in-head @ in-tail @ = if 0 in-head ! 0 in-tail ! then ;
 : s>in ( a n -- ) for aft dup c@ >in 1+ then next drop ;

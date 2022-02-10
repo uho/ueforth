@@ -20,7 +20,10 @@
 typedef intptr_t cell_t;
 typedef uintptr_t ucell_t;
 
-#define Y(op, code) X(#op, id ## op, code)
+#define YV(flags, op, code) XV(flags, #op, ID_ ## op, code)
+#define X(name, op, code) XV(forth, name, op, code)
+#define Y(op, code) XV(forth, #op, ID_ ## op, code)
+
 #define NIP (--sp)
 #define NIPn(n) (sp -= (n))
 #define DROP (tos = *sp--)
@@ -28,10 +31,22 @@ typedef uintptr_t ucell_t;
 #define DUP (*++sp = tos)
 #define PUSH DUP; tos = (cell_t)
 #define COMMA(n) *g_sys.heap++ = (n)
-#define DOIMMEDIATE() (*g_sys.current)[-1] |= IMMEDIATE
-#define UNSMUDGE() (*g_sys.current)[-1] &= ~SMUDGE
 #define DOES(ip) **g_sys.current = (cell_t) ADDR_DODOES; (*g_sys.current)[1] = (cell_t) ip
-#define PARK DUP; *++rp = (cell_t) sp; *++rp = (cell_t) ip
+
+#define PARK   DUP; *++rp = (cell_t) fp; *++rp = (cell_t) sp; *++rp = (cell_t) ip
+#define UNPARK ip = (cell_t *) *rp--;  sp = (cell_t *) *rp--; fp = (float *) *rp--; DROP
+
+#define TOFLAGS(xt) ((uint8_t *) (((cell_t *) (xt)) - 1))
+#define TONAMELEN(xt) (TOFLAGS(xt) + 1)
+#define TOPARAMS(xt) ((uint16_t *) (TOFLAGS(xt) + 2))
+#define TOSIZE(xt) (CELL_ALIGNED(*TONAMELEN(xt)) + sizeof(cell_t) * (3 + *TOPARAMS(xt)))
+#define TOLINK(xt) (((cell_t *) (xt)) - 2)
+#define TONAME(xt) ((*TOFLAGS(xt) & BUILTIN_MARK) ? (*(char **) TOLINK(xt)) \
+    : (((char *) TOLINK(xt)) - CELL_ALIGNED(*TONAMELEN(xt))))
+#define TOBODY(xt) (((cell_t *) xt) + ((void *) *((cell_t *) xt) == ADDR_DOCOLON ? 1 : 2))
+
+#define DOIMMEDIATE() *TOFLAGS(*g_sys.current) |= IMMEDIATE
+#define UNSMUDGE() *TOFLAGS(*g_sys.current) &= ~SMUDGE; finish()
 
 #ifndef SSMOD_FUNC
 # if __SIZEOF_POINTER__ == 8
@@ -45,6 +60,18 @@ typedef int64_t dcell_t;
                     --sp; cell_t a = (cell_t) (d < 0 ? ~(~d / tos) : d / tos); \
                     *sp = (cell_t) (d - ((dcell_t) a) * tos); tos = a
 #endif
+
+typedef struct {
+  const char *name;
+  union {
+    struct {
+      uint8_t flags, name_length;
+      uint16_t vocabulary;
+    };
+    cell_t multi;
+  };
+  const void *code;
+} BUILTIN_WORD;
 
 #define OPCODE_LIST \
   X("0=", ZEQUAL, tos = !tos ? -1 : 0) \
@@ -63,10 +90,12 @@ typedef int64_t dcell_t;
   Y(OVER, DUP; tos = sp[-1]) \
   Y(DROP, DROP) \
   X("@", AT, tos = *(cell_t *) tos) \
-  X("L@", LAT, tos = *(int32_t *) tos) \
+  X("SL@", SLAT, tos = *(int32_t *) tos) \
+  X("SW@", SWAT, tos = *(int16_t *) tos) \
   X("C@", CAT, tos = *(uint8_t *) tos) \
   X("!", STORE, *(cell_t *) tos = *sp--; DROP) \
   X("L!", LSTORE, *(int32_t *) tos = *sp--; DROP) \
+  X("W!", WSTORE, *(int16_t *) tos = *sp--; DROP) \
   X("C!", CSTORE, *(uint8_t *) tos = *sp--; DROP) \
   X("SP@", SPAT, DUP; tos = (cell_t) sp) \
   X("SP!", SPSTORE, sp = (cell_t *) tos; DROP) \
@@ -76,30 +105,30 @@ typedef int64_t dcell_t;
   X("R>", FROMR, DUP; tos = *rp; --rp) \
   X("R@", RAT, DUP; tos = *rp) \
   Y(EXECUTE, w = tos; DROP; JMPW) \
-  Y(BRANCH, ip = (cell_t *) *ip) \
-  Y(0BRANCH, if (!tos) ip = (cell_t *) *ip; else ++ip; DROP) \
-  Y(DONEXT, *rp = *rp - 1; if (~*rp) ip = (cell_t *) *ip; else (--rp, ++ip)) \
-  Y(DOLIT, DUP; tos = *ip++) \
-  Y(ALITERAL, COMMA(g_sys.DOLIT_XT); COMMA(tos); DROP) \
+  YV(internals, BRANCH, ip = (cell_t *) *ip) \
+  YV(internals, 0BRANCH, if (!tos) ip = (cell_t *) *ip; else ++ip; DROP) \
+  YV(internals, DONEXT, *rp = *rp - 1; if (~*rp) ip = (cell_t *) *ip; else (--rp, ++ip)) \
+  YV(internals, DOLIT, DUP; tos = *ip++) \
+  YV(internals, ALITERAL, COMMA(g_sys.DOLIT_XT); COMMA(tos); DROP) \
   Y(CELL, DUP; tos = sizeof(cell_t)) \
   Y(FIND, tos = find((const char *) *sp, tos); --sp) \
   Y(PARSE, DUP; tos = parse(tos, sp)) \
-  X("S>NUMBER?", CONVERT, tos = convert((const char *) *sp, tos, g_sys.base, sp); \
-                          if (!tos) --sp) \
-  X("F>NUMBER?", FCONVERT, tos = fconvert((const char *) *sp, tos, fp); --sp) \
+  XV(internals, "S>NUMBER?", \
+      CONVERT, tos = convert((const char *) *sp, tos, g_sys.base, sp); \
+      if (!tos) --sp) \
   Y(CREATE, DUP; DUP; tos = parse(32, sp); \
             create((const char *) *sp, tos, 0, ADDR_DOCREATE); \
             COMMA(0); DROPn(2)) \
   X("DOES>", DOES, DOES(ip); ip = (cell_t *) *rp; --rp) \
   Y(IMMEDIATE, DOIMMEDIATE()) \
-  X("'SYS", SYS, DUP; tos = (cell_t) &g_sys) \
-  Y(YIELD, PARK; return rp) \
+  XV(internals, "'SYS", SYS, DUP; tos = (cell_t) &g_sys) \
+  YV(internals, YIELD, PARK; return rp) \
   X(":", COLON, DUP; DUP; tos = parse(32, sp); \
                 create((const char *) *sp, tos, SMUDGE, ADDR_DOCOLON); \
                 g_sys.state = -1; --sp; DROP) \
-  Y(EVALUATE1, DUP; float *tfp = fp; \
+  YV(internals, EVALUATE1, DUP; float *tfp = fp; \
                sp = evaluate1(sp, &tfp); \
                fp = tfp; w = *sp--; DROP; if (w) JMPW) \
   Y(EXIT, ip = (cell_t *) *rp--) \
-  X(";", SEMICOLON, UNSMUDGE(); COMMA(g_sys.DOEXIT_XT); g_sys.state = 0) \
-
+  XV(internals, "'builtins", TBUILTINS, DUP; tos = (cell_t) &g_sys.builtins->code) \
+  XV(forth_immediate, ";", SEMICOLON, COMMA(g_sys.DOEXIT_XT); UNSMUDGE(); g_sys.state = 0)

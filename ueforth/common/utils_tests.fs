@@ -36,9 +36,9 @@ e: test-forget
   : bar foo foo ;
   : baz bar bar * * ;
   forget foo
-  here = assert
-  current @ = assert
-  context @ @ = assert
+  here =assert
+  current @ =assert
+  context @ @ =assert
 ;e
 
 e: test-see-number
@@ -69,4 +69,42 @@ e: test-see-fornext
   : test for next ;
   see test
   out: : test  >R DONEXT ; 
+;e
+
+e: test-string-strides
+  : test0 1 if ." " then ;
+  : test1 1 if ." >" then ;
+  : test2 1 if ." ->" then ;
+  : test3 1 if ." -->" then ;
+  : test4 1 if ." --->" then ;
+  : test5 1 if ." ---->" then ;
+  : test6 1 if ." ----->" then ;
+  : test7 1 if ." ------>" then ;
+  : test8 1 if ." ------->" then ;
+  see test0
+  out: : test0  1 0BRANCH s" " type ; 
+  see test1
+  out: : test1  1 0BRANCH s" >" type ; 
+  see test2
+  out: : test2  1 0BRANCH s" ->" type ; 
+  see test3
+  out: : test3  1 0BRANCH s" -->" type ; 
+  see test4
+  out: : test4  1 0BRANCH s" --->" type ; 
+  see test5
+  out: : test5  1 0BRANCH s" ---->" type ; 
+  see test6
+  out: : test6  1 0BRANCH s" ----->" type ; 
+  see test7
+  out: : test7  1 0BRANCH s" ------>" type ; 
+  see test8
+  out: : test8  1 0BRANCH s" ------->" type ; 
+;e
+
+e: test-noname
+  :noname dup * ;
+  2 over execute
+  swap execute 
+  . cr
+  out: 16 
 ;e
