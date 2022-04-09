@@ -47,12 +47,13 @@ CFLAGS_MINIMIZE = \
                 -fmerge-all-constants
 CFLAGS = $(CFLAGS_COMMON) \
          $(CFLAGS_MINIMIZE) \
-         -std=c++11 \
          -Wall \
+         -std=c++11 \
          -Werror
 
 ifeq ($(OS),Darwin)
-  CFLAGS += -Wl,-dead_strip
+  CXX=g++-10
+  CFLAGS += -Wl,-dead_strip -Wno-error
 else
   CFLAGS_MINIMIZE += -Wl,--build-id=none
   CFLAGS += -s -Wl,--gc-sections -no-pie -Wl,--build-id=none
@@ -309,7 +310,7 @@ $(POSIX)/ueforth: \
     common/interp.h \
     common/core.h \
     $(GEN)/posix_boot.h | $(POSIX)
-	$(CXX) $(CFLAGS) $< -o $@ $(LIBS)
+	g++-10 $(CFLAGS) $< -o $@ $(LIBS)
 	strip $(STRIP_ARGS) $@
 
 # ---- WINDOWS ----
@@ -383,7 +384,11 @@ $(ESP32_SIM)/Esp32forth-sim: \
     common/interp.h \
     $(GEN)/esp32_boot.h \
     $(GEN)/esp32_sim_opcodes.h | $(ESP32_SIM)
+ifeq ($(OS),Darwin)
+	$(CXX) $(CFLAGS) -D_FILE_OFFSET_BITS=64 $< -o $@
+else
 	$(CXX) $(CFLAGS) -m32 -D_FILE_OFFSET_BITS=64 $< -o $@
+endif
 	strip $(STRIP_ARGS) $@
 
 # ---- ESP32 ----

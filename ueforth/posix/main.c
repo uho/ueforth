@@ -28,8 +28,7 @@
 
 #define PLATFORM_OPCODE_LIST \
   Y(errno, DUP; tos = (cell_t) errno) \
-  Y(DLSYM, tos = (cell_t) dlsym(a1 ? a1 : RTLD_DEFAULT, a0); --sp) \
-  FLOATING_POINT_LIST \
+  Y(DLSYM, tos = (cell_t) dlsym(a1 ? a1 : RTLD_DEFAULT, (const char*)a0); --sp) \
   CALLING_OPCODE_LIST \
   FLOATING_POINT_LIST
 

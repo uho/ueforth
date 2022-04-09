@@ -522,6 +522,7 @@ e: test-posix-forth-namespace
   out: default-type 
   out: posix 
   check-phase1
+  out: errno 
   out: DLSYM 
   check-opcodes
   out: forth-builtins 
