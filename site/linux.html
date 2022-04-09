@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<!--
+Copyright 2021 Bradley D. Nelson
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
+<head>
+<meta charset="UTF-8">
+<title>µEforth for Linux</title>
+<link rel="stylesheet" href="static/eforth.css">
+</head>
+<body>
+<h1>µEforth for Linux</h1>
+
+{{MENU}}
+
+<h2>Download</h2>
+
+<h3>STABLE RELEASE</h3>
+<p>
+<a href="https://eforth.storage.googleapis.com/releases/ueforth-{{STABLE_VERSION}}.linux">ueforth-{{STABLE_VERSION}}.linux</a>
+  - Linux 64-bit Executable µEforth<br/>
+  <i>Version: {{STABLE_VERSION}}</i>
+</p>
+
+<h3>Beta Release</h3>
+<p>
+<a href="https://eforth.storage.googleapis.com/releases/ueforth-{{VERSION}}.linux">ueforth-{{VERSION}}.linux</a>
+  - Linux 64-bit Executable µEforth<br/>
+  <i>Version: {{VERSION}}</i>
+</p>
+
+<hr/>
+
+<p>
+<a href="https://eforth.storage.googleapis.com/releases/archive.html" target="_blank">Release Archive</a>
+  - Prior Releases
+</p>
+<p>
+<a href="https://github.com/flagxor/ueforth" target="_blank">http://github.com/flagxor/ueforth</a>
+  - Complete Unprocessed Source Code
+</p>
+
+<h2>µEforth</h2>
+
+<h3>µEforth Specific Words</h3>
+
+{{COMMON}}
+{{POSIX_COMMON}}
+
+<h3>Linux</h3>
+
+<h4>Linux Opcodes</h4>
+
+<p>
+Linux libraries and the operating system can be accessed via the use
+of the <code>DLSYM</code> word. Functions can be requested by name from
+particular modules. As the dynamic linking module is already loaded initially,
+a 0 for the module allows the library loading function (<code>dlopen</code>)
+to be loaded from Forth.
+</p>
+
+<pre>
+DLSYM ( module name-z -- fn )
+</pre>
+
+<p>
+See <a href="https://github.com/flagxor/ueforth/blob/main/posix/posix_main.c">posix_main.c</a>.
+</p>
+
+<p>
+Native functions all called with CALL(n) (see Windows &amp; Linux Calling below).
+</p>
+
+<h4>Linux Imports</h4>
+
+<p>
+Various Linux calls including Xlib are imported in
+<a href="https://github.com/flagxor/ueforth/blob/main/posix/posix.fs">posix.fs</a> and
+<a href="https://github.com/flagxor/ueforth/blob/main/posix/xlib.fs">xlib.fs</a>.
+In addition, <code>TYPE</code> and <code>KEY</code> are connected to
+<code>stdin</code> and <code>stdout</code>.
+</p>
+
+{{DESKTOP_COMMON}}

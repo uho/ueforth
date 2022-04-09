@@ -1,0 +1,43 @@
+<!--
+Copyright 2021 Bradley D. Nelson
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
+<h3>Windows &amp; Linux Calling</h3>
+
+<p>
+As unfortunately both Windows and Linux have system and library calls with
+as many as 10 parameters (for example <code>XCreateImage</code>),
+a collection of calling thunks is required.
+A single varidic thunk would be ideal, but is hard to do without per platform
+assembly language.
+</p>
+
+<pre>
+CALL0 ( fn -- n )
+CALL1 ( n fn -- n )
+CALL2 ( n n fn -- n )
+CALL3 ( n n n fn -- n )
+CALL4 ( n n n n fn -- n )
+CALL5 ( n n n n n fn -- n )
+CALL6 ( n n n n n n fn -- n )
+CALL7 ( n n n n n n n fn -- n )
+CALL7 ( n n n n n n n n fn -- n )
+CALL9 ( n n n n n n n n n fn -- n )
+CALL10 ( n n n n n n n n n n fn -- n )
+</pre>
+
+<p>
+See <a href="https://github.com/flagxor/ueforth/blob/main/common/calling.h">calling.h</a>.
+</p>
