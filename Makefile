@@ -53,7 +53,8 @@ CFLAGS = $(CFLAGS_COMMON) \
 
 ifeq ($(OS),Darwin)
   CXX=g++-10
-  CFLAGS += -Wl,-dead_strip -Wno-error
+  CFLAGS += -Wl,-dead_strip -Wno-error \
+    -Wno-unused-variable -Wno-unused-but-set-variable -Wno-unused-function
 else
   CFLAGS_MINIMIZE += -Wl,--build-id=none
   CFLAGS += -s -Wl,--gc-sections -no-pie -Wl,--build-id=none
@@ -324,7 +325,7 @@ $(POSIX)/ueforth: \
     common/interp.h \
     common/core.h \
     $(GEN)/posix_boot.h | $(POSIX)
-	g++-10 $(CFLAGS) $< -o $@ $(LIBS)
+	$(CXX) $(CFLAGS) $< -o $@ $(LIBS)
 	strip $(STRIP_ARGS) $@
 
 # ---- WINDOWS ----
