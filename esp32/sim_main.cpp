@@ -13,8 +13,9 @@
 // limitations under the License.
 
 #include "esp32/options.h"
-#include "common/opcodes.h"
-#include "common/extra_opcodes.h"
+#include "common/tier0_opcodes.h"
+#include "common/tier1_opcodes.h"
+#include "common/tier2_opcodes.h"
 #include "common/floats.h"
 #include "common/calling.h"
 
@@ -28,14 +29,15 @@ static cell_t *simulated(cell_t *sp, const char *op);
 
 #include "gen/esp32_sim_opcodes.h"
 
-#define XV(flags, str, name, code) static const char *STR_ ## name = str;
+#define Z(flags, str, name, code) static const char *STR_ ## name = str;
 PLATFORM_SIMULATED_OPCODE_LIST
-#undef XV
+#undef Z
 
 #define MALLOC_CAP_INTERNAL 0
 #define heap_caps_get_largest_free_block(x) SIM_HEAP_SIZE
 #define heap_caps_get_free_size(x) SIM_HEAP_SIZE
 
+#include "common/bits.h"
 #include "common/core.h"
 #include "common/interp.h"
 #include "gen/esp32_boot.h"

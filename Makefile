@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-VERSION=7.0.6.16
-STABLE_VERSION=7.0.5.4
+VERSION=7.0.7.1
+STABLE_VERSION=7.0.6.19
+OLD_STABLE_VERSION=7.0.5.4
 REVISION=$(shell git rev-parse HEAD | head -c 20)
 REVSHORT=$(shell echo $(REVISION) | head -c 7)
 
@@ -37,8 +38,6 @@ CFLAGS_MINIMIZE = \
                 -DUEFORTH_MINIMAL \
                 -fno-exceptions \
                 -ffreestanding \
-                -fno-stack-check \
-                -fno-stack-protector \
                 -fno-stack-protector \
                 -fomit-frame-pointer \
                 -mno-stack-arg-probe \
@@ -110,6 +109,8 @@ LINK64 = "$(shell $(LSQ) ${MSVS}/*/*/VC/Tools/MSVC/*/bin/Hostx86/x64/link.exe | 
 RC32 = "$(shell $(LSQ) ${MSKITS}/*/bin/*/x86/rc.exe | head -n 1)"
 RC64 = "$(shell $(LSQ) ${MSKITS}/*/bin/*/x64/rc.exe | head -n 1)"
 
+D8 = "$(shell $(LSQ) ${HOME}/src/v8/v8/out/x64.release/d8)"
+
 # Selectively enable windows if tools available
 DEPLOYABLE := 1
 ifneq ("", $(CL32))
@@ -145,6 +146,12 @@ else
   $(warning "Missing some platforms skipping deployment build.")
 endif
 
+WEB_D8_TESTS =
+# Decide if we have d8.
+ifneq ("", $(D8))
+  WEB_D8_TESTS += sanity_test_web
+endif
+
 all: targets tests $(DEPLOY_TARGETS)
 fast: posix esp32_sim esp32
 
@@ -159,7 +166,7 @@ clean:
 posix_tests: unit_tests_posix see_all_test_posix save_restore_test
 win32_tests: unit_tests_win32
 win64_tests: unit_tests_win64
-web_tests:
+web_tests: $(WEB_D8_TESTS)
 esp32_tests:
 esp32_sim_tests: unit_tests_esp32_sim see_all_test_esp32_sim sizes
 
@@ -195,30 +202,50 @@ save_restore_test: $(POSIX)/ueforth
 sizes: $(ESP32_SIM)/Esp32forth-sim
 	echo internals size-all bye | $< | tools/memuse.py >$(ESP32_SIM)/sizes.txt
 
+sanity_test_web: $(WEB)/ueforth.js
+	echo '120 3 + . cr bye' | $(D8) $< | tools/check_web_sanity.js
+
 # ---- GENERATED ----
 
 $(GEN):
 	mkdir -p $@
 
-COMMON_PHASE1 = common/boot.fs common/conditionals.fs common/vocabulary.fs \
-                common/floats.fs common/structures.fs
+COMMON_PHASE1 = common/comments.fs \
+                common/boot.fs \
+                common/io.fs \
+                common/conditionals.fs \
+                common/vocabulary.fs \
+                common/floats.fs \
+                common/structures.fs
 
-COMMON_PHASE2 = common/tasks.fs common/utils.fs common/locals.fs \
-                common/filetools.fs common/including.fs \
-                common/streams.fs common/blocks.fs
+COMMON_PHASE1e = common/comments.fs \
+                                    common/tier2a_forth.fs \
+                 common/boot.fs \
+                                    common/tier2b_forth.fs \
+                 common/io.fs \
+                 common/conditionals.fs \
+                 common/vocabulary.fs \
+                 common/floats.fs \
+                 common/structures.fs
+
+COMMON_PHASE2 = common/utils.fs common/locals.fs
+
+COMMON_FILETOOLS = common/tasks.fs common/streams.fs \
+                   common/filetools.fs common/including.fs \
+                   common/blocks.fs
 
 COMMON_DESKTOP = common/ansi.fs common/desktop.fs \
                  common/graphics.fs common/graphics_utils.fs common/heart.fs
 
 POSIX_BOOT =  $(COMMON_PHASE1) \
               posix/posix.fs posix/allocation.fs posix/termios.fs \
-              $(COMMON_PHASE2) $(COMMON_DESKTOP) \
+              $(COMMON_PHASE2) $(COMMON_FILETOOLS) $(COMMON_DESKTOP) \
               posix/x11.fs \
               posix/graphics.fs \
               posix/sockets.fs posix/telnetd.fs posix/httpd.fs posix/web_interface.fs \
               posix/autoboot.fs \
               common/fini.fs
-$(GEN)/posix_boot.h: common/source_to_string.js $(POSIX_BOOT) | $(GEN)
+$(GEN)/posix_boot.h: tools/source_to_string.js $(POSIX_BOOT) | $(GEN)
 	$< boot $(VERSION) $(REVISION) $(POSIX_BOOT) >$@
 
 WINDOWS_BOOT = $(COMMON_PHASE1) \
@@ -229,26 +256,31 @@ WINDOWS_BOOT = $(COMMON_PHASE1) \
                windows/windows_gdi.fs \
                windows/windows_messages.fs \
                windows/allocation.fs \
-               $(COMMON_PHASE2) $(COMMON_DESKTOP) \
+               $(COMMON_PHASE2) $(COMMON_FILETOOLS) $(COMMON_DESKTOP) \
                windows/graphics.fs \
                posix/autoboot.fs \
                common/fini.fs
-$(GEN)/windows_boot.h: common/source_to_string.js $(WINDOWS_BOOT) | $(GEN)
+$(GEN)/windows_boot.h: tools/source_to_string.js $(WINDOWS_BOOT) | $(GEN)
 	$< -win boot $(VERSION) $(REVISION) $(WINDOWS_BOOT) >$@
 
 ESP32_BOOT = $(COMMON_PHASE1) \
              esp32/allocation.fs \
-             $(COMMON_PHASE2) \
+             $(COMMON_PHASE2) $(COMMON_FILETOOLS) \
              esp32/bindings.fs esp32/platform.fs \
              posix/httpd.fs posix/web_interface.fs esp32/web_interface.fs \
              esp32/registers.fs esp32/timers.fs \
              esp32/bterm.fs posix/telnetd.fs \
              esp32/camera.fs esp32/camera_server.fs \
              esp32/autoboot.fs common/fini.fs
-$(GEN)/esp32_boot.h: common/source_to_string.js $(ESP32_BOOT) | $(GEN)
+$(GEN)/esp32_boot.h: tools/source_to_string.js $(ESP32_BOOT) | $(GEN)
 	$< boot $(VERSION) $(REVISION) $(ESP32_BOOT) >$@
 
-$(GEN)/dump_web_opcodes: web/dump_web_opcodes.c common/opcodes.h | $(GEN)
+$(GEN)/dump_web_opcodes: \
+    web/dump_web_opcodes.c \
+    common/tier0_opcodes.h \
+    common/tier1_opcodes.h \
+    common/bits.h \
+    common/floats.h | $(GEN)
 	$(CXX) $(CFLAGS) $< -o $@
 
 $(GEN)/web_cases.js: $(GEN)/dump_web_opcodes | $(GEN)
@@ -256,6 +288,16 @@ $(GEN)/web_cases.js: $(GEN)/dump_web_opcodes | $(GEN)
 
 $(GEN)/web_dict.js: $(GEN)/dump_web_opcodes | $(GEN)
 	$< dict >$@
+
+$(GEN)/web_sys.js: $(GEN)/dump_web_opcodes | $(GEN)
+	$< sys >$@
+
+WEB_BOOT =  $(COMMON_PHASE1e) \
+            web/platform.fs \
+            $(COMMON_PHASE2) \
+            web/fini.fs
+$(GEN)/web_boot.js: tools/source_to_string.js $(WEB_BOOT) | $(GEN)
+	$< -web boot $(VERSION) $(REVISION) $(WEB_BOOT) >$@
 
 # ---- RESOURCES ----
 
@@ -302,9 +344,10 @@ $(WEB)/terminal.html: web/terminal.html | $(WEB)
 $(WEB)/ueforth.js: \
         web/fuse_web.js \
         web/web.template.js \
-        common/boot.fs \
+        $(GEN)/web_boot.js \
         $(GEN)/web_dict.js \
-        $(GEN)/web_cases.js | $(WEB)
+        $(GEN)/web_cases.js \
+        $(GEN)/web_sys.js | $(WEB)
 	$^ >$@
 
 # ---- POSIX ----
@@ -317,12 +360,14 @@ $(POSIX):
 
 $(POSIX)/ueforth: \
     posix/main.c \
-    common/opcodes.h \
-    common/extra_opcodes.h \
+    common/tier0_opcodes.h \
+    common/tier1_opcodes.h \
+    common/tier2_opcodes.h \
     common/calls.h \
     common/calling.h \
     common/floats.h \
     common/interp.h \
+    common/bits.h \
     common/core.h \
     $(GEN)/posix_boot.h | $(POSIX)
 	$(CXX) $(CFLAGS) $< -o $@ $(LIBS)
@@ -340,11 +385,13 @@ $(WINDOWS):
 
 $(WINDOWS)/uEf32.obj: \
     windows/main.c \
-    common/opcodes.h \
-    common/extra_opcodes.h \
+    common/tier0_opcodes.h \
+    common/tier1_opcodes.h \
+    common/tier2_opcodes.h \
     common/calls.h \
     common/calling.h \
     common/floats.h \
+    common/bits.h \
     common/core.h \
     windows/interp.h \
     $(GEN)/windows_boot.h | $(WINDOWS)
@@ -357,11 +404,13 @@ $(WINDOWS)/uEf32.exe: \
 
 $(WINDOWS)/uEf64.obj: \
     windows/main.c \
-    common/opcodes.h \
-    common/extra_opcodes.h \
+    common/tier0_opcodes.h \
+    common/tier1_opcodes.h \
+    common/tier2_opcodes.h \
     common/calls.h \
     common/calling.h \
     common/floats.h \
+    common/bits.h \
     common/core.h \
     windows/interp.h \
     $(GEN)/windows_boot.h | $(WINDOWS)
@@ -390,11 +439,13 @@ $(GEN)/esp32_sim_opcodes.h: $(GEN)/print-esp32-builtins | $(GEN)
 $(ESP32_SIM)/Esp32forth-sim: \
     esp32/sim_main.cpp \
     esp32/main.cpp \
-    common/opcodes.h \
-    common/extra_opcodes.h \
+    common/tier0_opcodes.h \
+    common/tier1_opcodes.h \
+    common/tier2_opcodes.h \
     common/floats.h \
     common/calling.h \
     common/floats.h \
+    common/bits.h \
     common/core.h \
     common/interp.h \
     $(GEN)/esp32_boot.h \
@@ -416,10 +467,12 @@ $(ESP32)/ESP32forth:
 
 ESP32_PARTS = tools/replace.js \
               esp32/template.ino \
-              common/opcodes.h \
-              common/extra_opcodes.h \
+              common/tier0_opcodes.h \
+              common/tier1_opcodes.h \
+              common/tier2_opcodes.h \
               common/floats.h \
               common/calling.h \
+              common/bits.h \
               common/core.h \
               common/interp.h \
               esp32/options.h \
@@ -432,10 +485,12 @@ $(ESP32)/ESP32forth/ESP32forth.ino: $(ESP32_PARTS) | $(ESP32)/ESP32forth
 	cat esp32/template.ino | tools/replace.js \
      VERSION=$(VERSION) \
      REVISION=$(REVISION) \
-     opcodes=@common/opcodes.h \
-     extra_opcodes=@common/extra_opcodes.h \
+     tier0_opcodes=@common/tier0_opcodes.h \
+     tier1_opcodes=@common/tier1_opcodes.h \
+     tier2_opcodes=@common/tier2_opcodes.h \
      calling=@common/calling.h \
      floats=@common/floats.h \
+     bits=@common/bits.h \
      core=@common/core.h \
      interp=@common/interp.h \
      options=@esp32/options.h \
@@ -474,6 +529,14 @@ publish-linux: $(POSIX)/ueforth
     $(POSIX)/ueforth \
     $(ARCHIVE)/ueforth-$(VERSION).linux
 
+publish-web: $(WEB)/ueforth.js
+	$(GSUTIL_CP) \
+    $(WEB)/ueforth.js \
+    $(ARCHIVE)/ueforth-$(VERSION)-$(REVSHORT).js
+	$(GSUTIL_CP) \
+    $(WEB)/ueforth.js \
+    $(ARCHIVE)/ueforth-$(VERSION).js
+
 publish-windows: $(WINDOWS)/uEf32.exe $(WINDOWS)/uEf64.exe
 	$(GSUTIL_CP) \
     $(WINDOWS)/uEf32.exe \
@@ -494,7 +557,7 @@ publish-index: | $(GEN)
     $(GEN)/archive.html \
     gs://eforth/releases/archive.html
 
-publish: publish-esp32 publish-linux publish-windows publish-index
+publish: publish-esp32 publish-linux publish-web publish-windows publish-index
 
 # ---- DEPLOY ----
 
@@ -502,12 +565,14 @@ $(DEPLOY):
 	mkdir -p $@
 
 REPLACE = tools/replace.js \
+          HEAD=@site/head.html \
           COMMON=@site/common.html \
           POSIX_COMMON=@site/posix_common.html \
           DESKTOP_COMMON=@site/desktop_common.html \
           MENU=@site/menu.html \
           VERSION=${VERSION} \
-          STABLE_VERSION=${STABLE_VERSION}
+          STABLE_VERSION=${STABLE_VERSION} \
+          OLD_STABLE_VERSION=${OLD_STABLE_VERSION}
 UE_REPLACE = $(REPLACE) FORTH=uEForth
 ESP_REPLACE = $(REPLACE) FORTH=ESP32forth
 
@@ -524,6 +589,8 @@ $(DEPLOY)/app.yaml: $(RES)/eforth.ico \
 	cp site/*.go $(DEPLOY)/
 	cp site/*.yaml $(DEPLOY)/
 	cp site/.gcloudignore $(DEPLOY)
+	cp out/web/ueforth.js $(DEPLOY)/
+	cat site/web.html | $(ESP_REPLACE) >$(DEPLOY)/web.html
 	cat site/ESP32forth.html | $(ESP_REPLACE) >$(DEPLOY)/ESP32forth.html
 	cat site/index.html | $(UE_REPLACE) >$(DEPLOY)/index.html
 	cat site/linux.html | $(UE_REPLACE) >$(DEPLOY)/linux.html
@@ -534,6 +601,9 @@ $(DEPLOY)/app.yaml: $(RES)/eforth.ico \
 deploy: all
 	cd out/deploy && gcloud app deploy -q --project esp32forth *.yaml
 	cd out/deploy && gcloud app deploy -q --project eforth *.yaml
+
+d8: web
+	${HOME}/src/v8/v8/out/x64.release/d8 out/web/ueforth.js
 
 # ---- INSTALL ----
 

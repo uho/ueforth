@@ -44,31 +44,88 @@ e: test-forget
 e: test-see-number
   : test 123 456 ;
   see test
-  out: : test  123 456 ; 
+  out: : test 
+  out:     123 456 
+  out: ; 
 ;e
 
 e: test-see-string
   : test s" hello there" ;
   see test
-  out: : test  s" hello there" ; 
+  out: : test 
+  out:     s" hello there" 
+  out: ; 
 ;e
 
-e: test-see-branch
-  : test begin again ;
+e: test-see-begin-again
+  : test begin . again ;
   see test
-  out: : test  BRANCH ; 
+  out: : test 
+  out:     BEGIN 
+  out:         . 
+  out:     AGAIN 
+  out:     
+  out: ; 
 ;e
 
-e: test-see-0branch
-  : test begin until ;
+e: test-see-begin-until
+  : test begin . until ;
   see test
-  out: : test  0BRANCH ; 
+  out: : test 
+  out:     BEGIN 
+  out:         . 
+  out:     UNTIL 
+  out:     
+  out: ;  
 ;e
 
-e: test-see-fornext
-  : test for next ;
+e: test-see-begin-while-repeat
+  : test begin . while . repeat ;
   see test
-  out: : test  >R DONEXT ; 
+  out: : test 
+  out:     BEGIN 
+  out:         . 
+  out:     WHILE 
+  out:         . 
+  out:     REPEAT 
+  out:     
+  out: ;  
+;e
+
+e: test-see-ahead-then
+  : test ahead . then ;
+  see test
+  out: : test 
+  out:     AHEAD 
+  out:         . 
+  out:     THEN 
+  out:     
+  out: ; 
+;e
+
+e: test-see-for-next
+  : test for i . next ;
+  see test
+  out: : test 
+  out:     FOR 
+  out:         I . 
+  out:     NEXT 
+  out:     
+  out: ; 
+;e
+
+e: test-see-for-aft-next
+  : test for aft i . then . next . ;
+  see test
+  out: : test 
+  out:     FOR 
+  out:         AFT 
+  out:             I . 
+  out:         THEN 
+  out:         . 
+  out:     NEXT 
+  out:     . 
+  out: ; 
 ;e
 
 e: test-see-string-strides
@@ -82,23 +139,68 @@ e: test-see-string-strides
   : test7 1 if ." ------>" then ;
   : test8 1 if ." ------->" then ;
   see test0
-  out: : test0  1 0BRANCH s" " type ; 
+  out: : test0 
+  out:     1 IF 
+  out:         s" " type 
+  out:     THEN 
+  out:     
+  out: ; 
   see test1
-  out: : test1  1 0BRANCH s" >" type ; 
+  out: : test1 
+  out:     1 IF 
+  out:         s" >" type 
+  out:     THEN 
+  out:     
+  out: ; 
   see test2
-  out: : test2  1 0BRANCH s" ->" type ; 
+  out: : test2 
+  out:     1 IF 
+  out:         s" ->" type 
+  out:     THEN 
+  out:     
+  out: ; 
   see test3
-  out: : test3  1 0BRANCH s" -->" type ; 
+  out: : test3 
+  out:     1 IF 
+  out:         s" -->" type 
+  out:     THEN 
+  out:     
+  out: ; 
   see test4
-  out: : test4  1 0BRANCH s" --->" type ; 
+  out: : test4 
+  out:     1 IF 
+  out:         s" --->" type 
+  out:     THEN 
+  out:     
+  out: ; 
   see test5
-  out: : test5  1 0BRANCH s" ---->" type ; 
+  out: : test5 
+  out:     1 IF 
+  out:         s" ---->" type 
+  out:     THEN 
+  out:     
+  out: ; 
   see test6
-  out: : test6  1 0BRANCH s" ----->" type ; 
+  out: : test6 
+  out:     1 IF 
+  out:         s" ----->" type 
+  out:     THEN 
+  out:     
+  out: ; 
   see test7
-  out: : test7  1 0BRANCH s" ------>" type ; 
+  out: : test7 
+  out:     1 IF 
+  out:         s" ------>" type 
+  out:     THEN 
+  out:     
+  out: ; 
   see test8
-  out: : test8  1 0BRANCH s" ------->" type ; 
+  out: : test8 
+  out:     1 IF 
+  out:         s" ------->" type 
+  out:     THEN 
+  out:     
+  out: ; 
 ;e
 
 e: test-noname
@@ -113,26 +215,43 @@ e: test-see-variable
   variable foo
   : bar foo @ . ;
   see bar
-  out: : bar  foo @ . ; 
+  out: : bar 
+  out:     foo @ . 
+  out: ; 
 ;e
 
 e: test-see-create
   create foo
   : bar foo @ . ;
   see bar
-  out: : bar  foo @ . ; 
+  out: : bar 
+  out:     foo @ . 
+  out: ; 
 ;e
 
 e: test-see-value
   0 value foo
   : bar foo . ;
   see bar
-  out: : bar  foo . ; 
+  out: : bar 
+  out:     foo . 
+  out: ; 
 ;e
 
 e: test-see-to
   0 value foo
-  : bar 123 to foo ;
+  : bar 123 to foo . ;
   see bar
-  out: : bar  123 TO foo ; 
+  out: : bar 
+  out:     123 TO foo 
+  out:     . 
+  out: ; 
+;e
+
+e: test-see-immediate
+  : foo 123 ; immediate
+  see foo
+  out: : foo 
+  out:     123 
+  out: ; IMMEDIATE 
 ;e

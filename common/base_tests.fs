@@ -105,6 +105,11 @@ e: test-accept
   pad swap type cr
   out: --> 1234567890
   out: 1234567890
+  in: foo
+  pad 10 accept
+  pad swap type cr
+  out: --> foo
+  out: foo
 ;e
 
 e: test-key
@@ -128,4 +133,27 @@ e: test-?dup
   depth 0 =assert
   0 ?dup 0 =assert
   depth 0 =assert
+;e
+
+e: test-lshift
+  $1234 4 lshift $12340 =assert
+;e
+
+e: test-rshift
+  $1234 4 rshift $123 =assert
+  -1 cell 8 * 1- rshift 1 =assert
+;e
+
+e: test-arshift
+  $1234 4 arshift $123 =assert
+  -1 cell 8 * 1- arshift -1 =assert
+;e
+
+e: test-2@2!
+  create foo 2 cells allot
+  123 456 foo 2!
+  999 foo 2@
+  456 =assert
+  123 =assert
+  999 =assert
 ;e

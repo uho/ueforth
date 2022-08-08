@@ -97,12 +97,13 @@ e: check-boot
   out: throw 
   out: catch 
   out: handler 
-  out: j 
-  out: i 
+  out: K 
+  out: J 
+  out: I 
   out: loop 
   out: +loop 
   out: leave 
-  out: unloop 
+  out: UNLOOP 
   out: ?do 
   out: do 
   out: next 
@@ -120,13 +121,10 @@ e: check-boot
   out: until 
   out: again 
   out: begin 
-  out: literal 
   out: [char] 
   out: char 
   out: ['] 
   out: ' 
-  out: ] 
-  out: [ 
   out: used 
   out: remaining 
   out: fdepth 
@@ -139,7 +137,19 @@ e: check-boot
   out: ( 
 ;e
 
-e: check-extra-opcodes
+e: check-tier2-opcodes
+  out: >flags 
+  out: >flags& 
+  out: >params 
+  out: >size 
+  out: >link& 
+  out: >link 
+  out: >name 
+  out: aligned 
+  out: align 
+;e
+
+e: check-tier1-opcodes
   out: nip 
   out: rdrop 
   out: */ 
@@ -189,18 +199,8 @@ e: check-extra-opcodes
 
   out: here 
   out: allot 
-  out: aligned 
-  out: align 
   out: , 
   out: c, 
-
-  out: >flags 
-  out: >params 
-  out: >size 
-  out: >link& 
-  out: >link 
-  out: >name 
-  out: >body 
 
   out: current 
   out: #tib 
@@ -211,7 +211,10 @@ e: check-extra-opcodes
   out: latestxt 
 ;e
 
-e: check-core-opcodes
+e: check-tier0-opcodes
+  out: [ 
+  out: ] 
+  out: literal 
   out: 0= 
   out: 0< 
   out: + 
@@ -219,6 +222,7 @@ e: check-core-opcodes
   out: */MOD 
   out: LSHIFT 
   out: RSHIFT 
+  out: ARSHIFT 
   out: AND 
   out: OR 
   out: XOR 
@@ -252,6 +256,7 @@ e: check-core-opcodes
   out: CONSTANT 
   out: DOES> 
   out: IMMEDIATE 
+  out: >BODY 
   out: : 
   out: EXIT 
   out: ; 
@@ -267,6 +272,7 @@ e: check-float-opcodes
   out: FDROP 
   out: FOVER 
   out: FSWAP 
+  out: FROT 
   out: FNEGATE 
   out: F0< 
   out: F0= 
@@ -391,6 +397,7 @@ e: check-utils
   out: str= 
   out: :noname 
   out: forget 
+  out: spaces 
   out: dump 
   out: assert 
 ;e
@@ -427,7 +434,10 @@ e: check-args
   out: argc 
 ;e
 
-e: check-highlevel
+e: check-imports
+  out: needs 
+  out: required 
+  out: included? 
   out: include 
   out: included 
 ;e
@@ -448,8 +458,9 @@ e: check-phase1
 
 e: check-opcodes
   check-float-opcodes
-  check-extra-opcodes
-  check-core-opcodes
+  check-tier2-opcodes
+  check-tier1-opcodes
+  check-tier0-opcodes
 ;e
 
 e: check-desktop
@@ -458,22 +469,24 @@ e: check-desktop
   check-ansi
 ;e
 
-e: check-phase2
+e: check-filetools
   check-blocks
-  out: streams 
-  check-highlevel
+  check-imports
   check-snapshots
-  check-locals
-  check-utils
+  out: streams 
   out: ms 
   check-tasks
 ;e
 
+e: check-phase2
+  check-locals
+  check-utils
+;e
+
 DEFINED? windows [IF]
 
-e: test-windows-forth-namespace
-  internals voclist
-  out: internals 
+e: test-windows-forth-voclist
+  internals ' graphics voclist-from
   out: graphics 
   out: ansi 
   out: editor 
@@ -481,6 +494,7 @@ e: test-windows-forth-namespace
   out: tasks 
   out: windows 
   out: structures 
+  out: internalized 
   out: internals 
   out: FORTH 
 ;e
@@ -489,6 +503,7 @@ e: test-windows-forth-namespace
   ' forth list-from
   out: FORTH 
   check-desktop
+  check-filetools
   check-phase2
   check-allocation
   out: default-key? 
@@ -509,8 +524,8 @@ e: test-windows-forth-namespace
 
 [ELSE] DEFINED? posix [IF]
 
-e: test-posix-forth-namespace
-  internals voclist
+e: test-posix-forth-voclist
+  internals ' sockets voclist-from
   out: sockets 
   out: internals 
   out: graphics 
@@ -521,6 +536,7 @@ e: test-posix-forth-namespace
   out: termios 
   out: posix 
   out: structures 
+  out: internalized 
   out: internals 
   out: FORTH 
 ;e
@@ -535,6 +551,7 @@ e: test-posix-forth-namespace
   out: sockets 
   out: x11 
   check-desktop
+  check-filetools
   check-phase2
   out: form 
   out: termios 
@@ -555,8 +572,8 @@ e: test-posix-forth-namespace
 
 [ELSE]
 
-e: test-esp32-forth-namespace
-  internals voclist
+e: test-esp32-forth-voclist
+  internals ' ansi voclist-from
   out: ansi 
   out: registers 
   out: oled 
@@ -578,6 +595,7 @@ e: test-esp32-forth-namespace
   out: streams 
   out: tasks 
   out: structures 
+  out: internalized 
   out: internals 
   out: FORTH 
 ;e
@@ -644,6 +662,7 @@ e: test-esp32-forth-namespace
   out: WiFi 
   out: Wire 
   out: ESP 
+  check-filetools
   check-phase2
   check-allocation
   check-phase1

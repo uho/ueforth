@@ -13,13 +13,89 @@
 \ limitations under the License.
 
 ( Including Files )
-: included ( a n -- )
-   r/o open-file dup if nip throw else drop then
+
+internals definitions
+
+: ends/ ( a n -- f ) 1- + c@ [char] / = ;
+: dirname ( a n -- )
+   dup if
+     2dup ends/ if 1- then
+   then
+   begin dup while
+     2dup ends/ if exit then 1-
+   repeat ;
+
+: starts./ ( a n -- f )
+   2 < if drop 0 exit then
+   2 s" ./" str= ;
+
+: starts../ ( a n -- f )
+   3 < if drop 0 exit then
+   3 s" ../" str= ;
+
+0 value sourcefilename&
+0 value sourcefilename#
+: sourcefilename ( -- a n ) sourcefilename& sourcefilename# ;
+: sourcefilename! ( a n -- ) to sourcefilename# to sourcefilename& ;
+: sourcedirname ( -- a n ) sourcefilename dirname ;
+
+: include-file ( fh -- )
    dup file-size throw
    dup allocate throw
-   swap 2dup >r >r
-   rot dup >r read-file throw drop
-   r> close-file throw
-   r> r> over >r evaluate
+   swap over >r
+   rot read-file throw
+   r@ swap evaluate
    r> free throw ;
-: include ( "name" -- ) bl parse included ; 
+
+: raw-included ( a n -- )
+   r/o open-file throw
+   dup >r include-file
+   r> close-file throw ;
+
+0 value included-files
+
+: path-join { a a# b b# -- a n }
+  a# b# + { r# } r# cell+ cell+ allocate throw { r }
+  2 cells +to r
+  b c@ [char] / = if 0 to a# then
+  begin b b# starts./ while
+    2 +to b -2 +to b#
+    a# b# + to r#
+  repeat
+  begin b b# starts../ a# 0<> and while
+    3 +to b -3 +to b#
+    a a# dirname to a# to a
+    a# b# + to r#
+  repeat
+  a r a# cmove b r a# + b# cmove
+  r# r cell - !
+  r r# ;
+: include+ 2 cells - { a }
+  included-files a ! a to included-files ;
+
+forth definitions internals
+
+: included ( a n -- )
+   sourcefilename >r >r
+   >r >r sourcedirname r> r> path-join 2dup sourcefilename!
+   ['] raw-included catch
+   dup if ." Error including: " sourcefilename type cr then
+   sourcefilename& include+
+   r> r> sourcefilename!
+   throw ;
+
+: include ( "name" -- ) bl parse included ;
+
+: included? { a n -- f }
+  sourcedirname a n path-join to n to a
+  included-files begin dup while
+    dup cell+ cell+ over cell+ @ a n str= if
+      a 2 cells - free throw drop -1 exit
+    then @
+  repeat
+  a 2 cells - free throw ;
+
+: required ( a n -- ) 2dup included? if 2drop else included then ;
+: needs ( "name" -- ) bl parse required ;
+
+forth

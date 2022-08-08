@@ -16,15 +16,14 @@ limitations under the License.
 -->
 
 <head>
-<meta charset="UTF-8">
-<title>ESP32forth</title>
-<link rel="stylesheet" href="static/eforth.css">
+  {{HEAD}}
+  <title>ESP32forth</title>
 </head>
-<body>
-<div>
-<h1>ESP32forth</h1>
 
+<body>
+<h1>ESP32forth</h1>
 {{MENU}}
+<div class="wrapper">
 
 <h2>Download</h2>
 
@@ -32,14 +31,21 @@ limitations under the License.
 <p>
 <a href="https://eforth.storage.googleapis.com/releases/ESP32forth-{{STABLE_VERSION}}.zip">ESP32forth-{{STABLE_VERSION}}.zip</a>
   - Single .ino file ready for installation<br/>
-  <i>Version: {{STABLE_VERSION}}</i>
+  <i>Version: {{STABLE_VERSION}} (Stable)</i>
+</p>
+
+<h3>LONG TERM STABLE RELEASE</h3>
+<p>
+<a href="https://eforth.storage.googleapis.com/releases/ESP32forth-{{OLD_STABLE_VERSION}}.zip">ESP32forth-{{OLD_STABLE_VERSION}}.zip</a>
+  - Single .ino file ready for installation<br/>
+  <i>Version: {{OLD_STABLE_VERSION}} (Long-term Stable)</i>
 </p>
 
 <h3>Beta Release</h3>
 <p>
 <a href="https://eforth.storage.googleapis.com/releases/ESP32forth-{{VERSION}}.zip">ESP32forth-{{VERSION}}.zip</a>
   - Single .ino file ready for installation<br/>
-  <i>Version: {{VERSION}}</i>
+  <i>Version: {{VERSION}} (Beta)</i>
 </p>
 
 <hr/>
@@ -190,7 +196,7 @@ Under <b>Tools</b> choose board and settings as below under <b>Tools</b>.
       <b>ESP32-CAM</b><br/>
       <a href="static/esp-cam-front.jpg" style="border: 0"><img src="static/esp-cam-front.jpg" width="100"></a>
       <a href="static/esp-cam-back.jpg" style="border: 0"><img src="static/esp-cam-back.jpg" width="100"></a>
-      <a href="static/esp-cam-wiring.jpg" style="border: 0"><img src="static/esp-cam-wiring.jpg" width="200"></a>
+      <a href="static/esp-cam-wiring.jpg" style="border: 0"><img src="static/esp-cam-wiring.jpg" width="100"></a>
     </td>
     <td>1.0.6</td>
     <td>
@@ -448,6 +454,15 @@ WiFi.localIP ( -- ip )
 WiFi.mode ( mode -- ) WIFI_MODE_NULL WIFI_MODE_STA WIFI_MODE_AP WIFI_MODE_APSTA
 WiFi.setTxPower ( powerx4 -- )   Set power x4
 WiFi.getTxPower ( -- powerx4 )   Get power x4
+
+( In 7.0.6.17 and up )
+WiFi.softAP ( ssid password/0 -- success )
+WiFi.softAPIP ( -- ip )
+WiFi.softAPBroadcastIP ( -- ip )
+WiFi.softAPNetworkID ( -- ip )
+WiFi.softAPConfig ( localip gateway subnet -- success )
+WiFi.softAPdisconnect ( wifioff -- success )
+WiFi.softAPgetStationNum ( -- num )
 </pre>
 
 <h5>mDNS</h5>

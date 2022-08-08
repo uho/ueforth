@@ -53,15 +53,26 @@ variable scope   scope context cell - !
 transfer{
   xt-find& xt-hide xt-transfer
   voc-stack-end last-vocabulary notfound
+  *key *emit wascr eat-till-cr
   immediate? input-buffer ?echo ?arrow. arrow
   evaluate-buffer aliteral value-bind
   leaving( )leaving leaving leaving,
-  (do) (?do) (+loop) 
   parse-quote digit $@ raw.s
-  tib-setup input-limit
+  tib-setup input-limit sp-limit ?stack
   [SKIP] [SKIP]' raw-ok boot-prompt free.
   $place zplace BUILTIN_MARK
 }transfer
+
+( Move branching opcodes to separate vocabulary )
+vocabulary internalized  internalized definitions
+: cleave   ' >link xt-transfer ;
+cleave begin   cleave again   cleave until
+cleave ahead   cleave then    cleave if
+cleave else    cleave while   cleave repeat
+cleave aft     cleave for     cleave next
+cleave do      cleave ?do     cleave +loop
+cleave loop    cleave leave
+
 forth definitions
 
 ( Make DOES> switch to compile mode when interpreted )
