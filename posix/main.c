@@ -28,7 +28,7 @@
 #define STACK_CELLS (8 * 1024)
 
 #define PLATFORM_OPCODE_LIST \
-  XV(forth, "errno", errno, DUP; tos = (cell_t) errno) \
+  XV(forth, "errno", _errno, DUP; tos = (cell_t) errno) \
   Y(DLSYM, tos = (cell_t) dlsym(a1 ? a1 : RTLD_DEFAULT, (const char*)a0); --sp) \
   CALLING_OPCODE_LIST \
   FLOATING_POINT_LIST
