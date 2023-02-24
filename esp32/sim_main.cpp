@@ -12,12 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "esp32/platform.h"
 #include "esp32/options.h"
 #include "common/tier0_opcodes.h"
 #include "common/tier1_opcodes.h"
 #include "common/tier2_opcodes.h"
 #include "common/floats.h"
-#include "common/calling.h"
+#include "common/calls.h"
 
 #define SIM_HEAP_SIZE (100 * 1024 + 1024 * 1024)
 
@@ -25,6 +26,7 @@ static cell_t *simulated(cell_t *sp, const char *op);
 
 #define PLATFORM_OPCODE_LIST \
   PLATFORM_SIMULATED_OPCODE_LIST \
+  CALLING_OPCODE_LIST \
   FLOATING_POINT_LIST
 
 #include "gen/esp32_sim_opcodes.h"
@@ -37,8 +39,15 @@ PLATFORM_SIMULATED_OPCODE_LIST
 #define heap_caps_get_largest_free_block(x) SIM_HEAP_SIZE
 #define heap_caps_get_free_size(x) SIM_HEAP_SIZE
 
+// Fault handling can't work in the simulator for now.
+#undef ENABLE_ESP32_FORTH_FAULT_HANDLING
+
+#define forth_faults_setup()
+#define FAULT_ENTRY
+
 #include "common/bits.h"
 #include "common/core.h"
+#include "common/calling.h"
 #include "common/interp.h"
 #include "gen/esp32_boot.h"
 #include "esp32/main.cpp"
@@ -52,6 +61,10 @@ PLATFORM_SIMULATED_OPCODE_LIST
 
 static cell_t *simulated(cell_t *sp, const char *op) {
   if (op == STR_MALLOC) {
+    *sp = (cell_t) malloc(*sp);
+    return sp;
+  } else if (op == STR_heap_caps_malloc) {
+    --sp;
     *sp = (cell_t) malloc(*sp);
     return sp;
   } else if (op == STR_SYSFREE) {
@@ -91,7 +104,7 @@ static cell_t *simulated(cell_t *sp, const char *op) {
   } else if (op == STR_SERIAL_AVAILABLE) {
     *++sp = 1;
     return sp;
-  } else if (op == STR_TERMINATE) {
+  } else if (op == STR_RAW_TERMINATE) {
     exit(*sp--);
     return sp;
   } else if (op == STR_R_O) {
@@ -146,6 +159,12 @@ static cell_t *simulated(cell_t *sp, const char *op) {
     return sp;
   } else if (op == STR_esp_partition_t_size) {
     *++sp = 64;
+    return sp;
+  } else if (op == STR_IS_XTENSA) {
+    *++sp = -1;
+    return sp;
+  } else if (op == STR_IS_RISCV) {
+    *++sp = -1;
     return sp;
   } else {
     fprintf(stderr, "MISSING SIM OPCODE: %s\n", op);

@@ -21,7 +21,6 @@ forth definitions
 
 ( Set up Basic I/O )
 internals definitions also serial
-: esp32-bye   0 terminate ;
 : serial-type ( a n -- ) Serial.write drop ;
 : serial-key ( -- n )
    begin pause Serial.available until 0 >r rp@ 1 Serial.readBytes drop r> ;
@@ -33,7 +32,7 @@ also forth definitions
 ' default-type is type
 ' default-key is key
 ' default-key? is key?
-' esp32-bye is bye
+' raw-terminate is terminate
 only forth definitions
 
 also ledc also serial also SPIFFS
@@ -44,9 +43,6 @@ also ledc also serial also SPIFFS
 : duty ( n n -- ) 255 min 8191 255 */ ledcWrite ;
 : freq ( n n -- ) 1000 * 13 ledcSetup drop ;
 : tone ( n n -- ) 1000 * ledcWriteTone drop ;
-
-( Utilities )
-: page   30 for cr next ;
 
 ( Basic Ardiuno Constants )
 0 constant LOW

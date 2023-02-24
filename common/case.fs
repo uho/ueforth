@@ -1,4 +1,4 @@
-\ Copyright 2021 Bradley D. Nelson
+\ Copyright 2022 Bradley D. Nelson
 \
 \ Licensed under the Apache License, Version 2.0 (the "License");
 \ you may not use this file except in compliance with the License.
@@ -12,8 +12,14 @@
 \ See the License for the specific language governing permissions and
 \ limitations under the License.
 
-needs ../posix/termios.fs
+internals definitions
+variable cases
+forth definitions internals
 
-create keymap
+: CASE ( n -- ) cases @  0 cases ! ; immediate
+: ENDCASE   postpone drop cases @ for aft postpone then then next
+            cases ! ; immediate
+: OF ( n -- ) postpone over postpone = postpone if postpone drop ; immediate
+: ENDOF   1 cases +! postpone else ; immediate
 
-: edit raw-mode begin key . again ;
+forth definitions

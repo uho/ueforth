@@ -14,11 +14,13 @@
 
 ( Migrate various words to separate vocabularies, and constants )
 
+forth definitions internals
+: read-dir ( dh -- a n ) readdir dup if z>s else 0 then ;
+forth definitions
+
 vocabulary ESP   ESP definitions
 transfer ESP-builtins
 only forth definitions
-
-forth definitions
 
 vocabulary Wire   Wire definitions
 transfer wire-builtins
@@ -88,16 +90,25 @@ forth definitions
 vocabulary sockets   sockets definitions
 transfer sockets-builtins
 1 constant SOCK_STREAM
+2 constant SOCK_DGRAM
+3 constant SOCK_RAW
+
 2 constant AF_INET
 16 constant sizeof(sockaddr_in)
 1 constant SOL_SOCKET
 2 constant SO_REUSEADDR
-: bs, ( n -- ) dup 256 / c, c, ;
-: s, ( n -- ) dup c, 256 / c, ;
-: l, ( n -- ) dup s, 65536 / s, ;
+
+: bs, ( n -- ) dup 8 rshift c, c, ;
+: s, ( n -- ) dup c, 8 rshift c, ;
+: l, ( n -- ) dup s, 16 rshift s, ;
 : sockaddr   create 16 c, AF_INET c, 0 bs, 0 l, 0 l, 0 l, ;
-: ->port@ ( a -- n ) 2 + >r r@ c@ 256 * r> 1+ c@ + ;
-: ->port! ( n a --  ) 2 + >r dup 256 / r@ c! r> 1+ c! ;
+: ->port@ ( a -- n ) 2 + >r r@ c@ 8 lshift r> 1+ c@ + ;
+: ->port! ( n a --  ) 2 + >r dup 8 rshift r@ c! r> 1+ c! ;
+: ->addr@ ( a -- n ) 4 + ul@ ;
+: ->addr! ( n a --  ) 4 + l! ;
+: ->h_addr ( hostent -- n ) 2 cells + 8 + @ @ ul@ ;
+: ip# ( n -- n ) dup 255 and n. [char] . emit 8 rshift ;
+: ip. ( n -- ) ip# ip# ip# 255 and n. ;
 forth definitions
 
 vocabulary interrupts   interrupts definitions
@@ -132,9 +143,15 @@ vocabulary rtos   rtos definitions
 transfer rtos-builtins
 forth definitions
 
-vocabulary bluetooth   bluetooth definitions
-transfer bluetooth-builtins
-forth definitions
+DEFINED? SerialBT.new [IF]
+  vocabulary bluetooth   bluetooth definitions
+  transfer bluetooth-builtins
+  forth definitions
+[ELSE]
+  internals definitions
+  transfer bluetooth-builtins
+  forth definitions
+[THEN]
 
 vocabulary oled   oled definitions
 transfer oled-builtins
@@ -162,16 +179,14 @@ forth definitions
 
 internals definitions
 ( Heap Capabilities )
-binary
-0001 constant MALLOC_CAP_EXEC
-0010 constant MALLOC_CAP_32BIT
-0100 constant MALLOC_CAP_8BIT
-1000 constant MALLOC_CAP_DMA
-: MALLOC_CAP_PID ( n -- ) 10000 over 11 ( 3 ) - for 2* next ;
-000010000000000 constant MALLOC_CAP_SPIRAM
-000100000000000 constant MALLOC_CAP_INTERNAL
-001000000000000 constant MALLOC_CAP_DEFAULT
-010000000000000 constant MALLOC_CAP_IRAM_8BIT
-010000000000000 constant MALLOC_CAP_RETENTION
-decimal
+1 0 lshift constant MALLOC_CAP_EXEC
+1 1 lshift constant MALLOC_CAP_32BIT
+1 2 lshift constant MALLOC_CAP_8BIT
+1 3 lshift constant MALLOC_CAP_DMA
+1 10 lshift constant MALLOC_CAP_SPIRAM
+1 11 lshift constant MALLOC_CAP_INTERNAL
+1 12 lshift constant MALLOC_CAP_DEFAULT
+1 13 lshift constant MALLOC_CAP_IRAM_8BIT
+1 14 lshift constant MALLOC_CAP_RETENTION
+1 15 lshift constant MALLOC_CAP_RTCRAM
 forth definitions

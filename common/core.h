@@ -109,6 +109,9 @@ static cell_t same(const char *a, const char *b, cell_t len) {
 }
 
 static cell_t find(const char *name, cell_t len) {
+  if (len == 0) {
+    return 0;
+  }
   for (cell_t ***voc = g_sys->context; *voc; ++voc) {
     cell_t xt = (cell_t) **voc;
     while (xt) {
@@ -282,9 +285,9 @@ static void forth_init(int argc, char *argv[],
   g_sys->tib = src;
   g_sys->ntib = src_len;
 
+  *++rp = (cell_t) start;
   *++rp = (cell_t) fp;
   *++rp = (cell_t) sp;
-  *++rp = (cell_t) start;
   g_sys->rp = rp;
   g_sys->runner = forth_run;
 }

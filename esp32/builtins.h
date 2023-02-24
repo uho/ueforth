@@ -14,6 +14,7 @@
 
 #ifndef SIM_PRINT_ONLY
 
+# include <dirent.h>
 # include <errno.h>
 # include <unistd.h>
 # include <fcntl.h>
@@ -34,9 +35,11 @@ static cell_t ResizeFile(cell_t fd, cell_t size);
 
 #define PLATFORM_OPCODE_LIST \
   USER_WORDS \
+  REQUIRED_PLATFORM_SUPPORT \
   REQUIRED_ESP_SUPPORT \
   REQUIRED_MEMORY_SUPPORT \
   REQUIRED_SERIAL_SUPPORT \
+  OPTIONAL_SERIAL2_SUPPORT \
   REQUIRED_ARDUINO_GPIO_SUPPORT \
   REQUIRED_SYSTEM_SUPPORT \
   REQUIRED_FILES_SUPPORT \
@@ -56,6 +59,7 @@ static cell_t ResizeFile(cell_t fd, cell_t size);
   OPTIONAL_RMT_SUPPORT \
   OPTIONAL_OLED_SUPPORT \
   OPTIONAL_SPI_FLASH_SUPPORT \
+  CALLING_OPCODE_LIST \
   FLOATING_POINT_LIST
 
 #define REQUIRED_MEMORY_SUPPORT \
@@ -65,7 +69,22 @@ static cell_t ResizeFile(cell_t fd, cell_t size);
   YV(internals, heap_caps_malloc, SET heap_caps_malloc(n1, n0); NIP) \
   YV(internals, heap_caps_free, heap_caps_free(a0); DROP) \
   YV(internals, heap_caps_realloc, \
-      tos = (cell_t) heap_caps_realloc(a2, n1, n0); NIPn(2))
+      tos = (cell_t) heap_caps_realloc(a2, n1, n0); NIPn(2)) \
+  YV(internals, heap_caps_get_total_size, n0 = heap_caps_get_total_size(n0)) \
+  YV(internals, heap_caps_get_free_size, n0 = heap_caps_get_free_size(n0)) \
+  YV(internals, heap_caps_get_minimum_free_size, \
+      n0 = heap_caps_get_minimum_free_size(n0)) \
+  YV(internals, heap_caps_get_largest_free_block, \
+      n0 = heap_caps_get_largest_free_block(n0))
+
+#define REQUIRED_PLATFORM_SUPPORT \
+  X("ESP32?", IS_ESP32, PUSH UEFORTH_PLATFORM_IS_ESP32) \
+  X("ESP32-S2?", IS_ESP32S2, PUSH UEFORTH_PLATFORM_IS_ESP32S2) \
+  X("ESP32-S3?", IS_ESP32S3, PUSH UEFORTH_PLATFORM_IS_ESP32S3) \
+  X("ESP32-C3?", IS_ESP32C3, PUSH UEFORTH_PLATFORM_IS_ESP32C3) \
+  X("PSRAM?", HAS_PSRAM, PUSH UEFORTH_PLATFORM_HAS_PSRAM) \
+  X("Xtensa?", IS_XTENSA, PUSH UEFORTH_PLATFORM_IS_XTENSA) \
+  X("RISC-V?", IS_RISCV, PUSH UEFORTH_PLATFORM_IS_RISCV)
 
 #define REQUIRED_ESP_SUPPORT \
   YV(ESP, getHeapSize, PUSH ESP.getHeapSize()) \
@@ -76,12 +95,14 @@ static cell_t ResizeFile(cell_t fd, cell_t size);
   YV(ESP, getFlashChipSize, PUSH ESP.getFlashChipSize()) \
   YV(ESP, getCpuFreqMHz, PUSH ESP.getCpuFreqMHz()) \
   YV(ESP, getSketchSize, PUSH ESP.getSketchSize()) \
-  YV(ESP, deepSleep, ESP.deepSleep(tos); DROP)
+  YV(ESP, deepSleep, ESP.deepSleep(tos); DROP) \
+  YV(ESP, getEfuseMac, PUSH (cell_t) ESP.getEfuseMac(); PUSH (cell_t) (ESP.getEfuseMac() >> 32)) \
+  YV(ESP, esp_log_level_set, esp_log_level_set(c1, (esp_log_level_t) n0); DROPn(2))
 
 #define REQUIRED_SYSTEM_SUPPORT \
   X("MS-TICKS", MS_TICKS, PUSH millis()) \
   XV(internals, "RAW-YIELD", RAW_YIELD, yield()) \
-  Y(TERMINATE, exit(n0))
+  XV(internals, "RAW-TERMINATE", RAW_TERMINATE, ESP.restart())
 
 #define REQUIRED_SERIAL_SUPPORT \
   XV(serial, "Serial.begin", SERIAL_BEGIN, Serial.begin(tos); DROP) \
@@ -90,12 +111,20 @@ static cell_t ResizeFile(cell_t fd, cell_t size);
   XV(serial, "Serial.readBytes", SERIAL_READ_BYTES, n0 = Serial.readBytes(b1, n0); NIP) \
   XV(serial, "Serial.write", SERIAL_WRITE, n0 = Serial.write(b1, n0); NIP) \
   XV(serial, "Serial.flush", SERIAL_FLUSH, Serial.flush()) \
+  XV(serial, "Serial.setDebugOutput", SERIAL_DEBUG_OUTPUT, Serial.setDebugOutput(n0); DROP)
+
+#ifndef ENABLE_SERIAL2_SUPPORT
+# define OPTIONAL_SERIAL2_SUPPORT
+#else
+# define OPTIONAL_SERIAL2_SUPPORT \
   XV(serial, "Serial2.begin", SERIAL2_BEGIN, Serial2.begin(tos); DROP) \
   XV(serial, "Serial2.end", SERIAL2_END, Serial2.end()) \
   XV(serial, "Serial2.available", SERIAL2_AVAILABLE, PUSH Serial2.available()) \
   XV(serial, "Serial2.readBytes", SERIAL2_READ_BYTES, n0 = Serial2.readBytes(b1, n0); NIP) \
   XV(serial, "Serial2.write", SERIAL2_WRITE, n0 = Serial2.write(b1, n0); NIP) \
-  XV(serial, "Serial2.flush", SERIAL2_FLUSH, Serial2.flush())
+  XV(serial, "Serial2.flush", SERIAL2_FLUSH, Serial2.flush()) \
+  XV(serial, "Serial2.setDebugOutput", SERIAL2_DEBUG_OUTPUT, Serial2.setDebugOutput(n0); DROP)
+#endif
 
 #define REQUIRED_ARDUINO_GPIO_SUPPORT \
   Y(pinMode, pinMode(n1, n0); DROPn(2)) \
@@ -120,7 +149,10 @@ static cell_t ResizeFile(cell_t fd, cell_t size);
   X("DELETE-FILE", DELETE_FILE, cell_t len = n0; DROP; \
     memcpy(filename, a0, len); filename[len] = 0; \
     n0 = unlink(filename); n0 = n0 ? errno : 0) \
-  X("RENAME-FILE", RENAME_FILE, NIPn(3); /* unimplemented */ n0 = 1) \
+  X("RENAME-FILE", RENAME_FILE, \
+    cell_t len = n0; DROP; memcpy(filename, a0, len); filename[len] = 0; DROP; \
+    cell_t len2 = n0; DROP; memcpy(filename2, a0, len2); filename2[len2] = 0; \
+    n0 = rename(filename2, filename); n0 = n0 ? errno : 0) \
   X("WRITE-FILE", WRITE_FILE, cell_t fd = n0; DROP; cell_t len = n0; DROP; \
     n0 = write(fd, a0, len); n0 = n0 != len ? errno : 0) \
   X("READ-FILE", READ_FILE, cell_t fd = n0; DROP; cell_t len = n0; DROP; \
@@ -133,7 +165,12 @@ static cell_t ResizeFile(cell_t fd, cell_t size);
   X("FILE-SIZE", FILE_SIZE, struct stat st; w = fstat(n0, &st); \
     n0 = (cell_t) st.st_size; PUSH w < 0 ? errno : 0) \
   X("NON-BLOCK", NON_BLOCK, n0 = fcntl(n0, F_SETFL, O_NONBLOCK); \
-    n0 = n0 < 0 ? errno : 0)
+    n0 = n0 < 0 ? errno : 0) \
+  X("OPEN-DIR", OPEN_DIR, memcpy(filename, a1, n0); filename[n0] = 0; \
+    n1 = (cell_t) opendir(filename); n0 = n1 ? 0 : errno) \
+  X("CLOSE-DIR", CLOSE_DIR, n0 = closedir((DIR *) n0); n0 = n0 ? errno : 0) \
+  YV(internals, READDIR, \
+    struct dirent *ent = readdir((DIR *) n0); SET (ent ? ent->d_name: 0))
 
 #ifndef ENABLE_LEDC_SUPPORT
 # define OPTIONAL_LEDC_SUPPORT
@@ -365,7 +402,9 @@ static cell_t TimerIsrRegister(cell_t group, cell_t timer, cell_t xt, cell_t arg
   YV(camera, esp_camera_deinit, PUSH esp_camera_deinit()) \
   YV(camera, esp_camera_fb_get, PUSH esp_camera_fb_get()) \
   YV(camera, esp_camera_fb_return, esp_camera_fb_return((camera_fb_t *) a0); DROP) \
-  YV(camera, esp_camera_sensor_get, PUSH esp_camera_sensor_get())
+  YV(camera, esp_camera_sensor_get, PUSH esp_camera_sensor_get()) \
+  YV(camera, esp_camera_save_to_nvs, n0 = esp_camera_save_to_nvs(c0)) \
+  YV(camera, esp_camera_load_from_nvs, n0 = esp_camera_load_from_nvs(c0))
 #endif
 
 #ifndef ENABLE_SOCKETS_SUPPORT
@@ -373,6 +412,7 @@ static cell_t TimerIsrRegister(cell_t group, cell_t timer, cell_t xt, cell_t arg
 #else
 # ifndef SIM_PRINT_ONLY
 #  include <errno.h>
+#  include <netdb.h>
 #  include <sys/select.h>
 #  include <sys/socket.h>
 #  include <sys/time.h>
@@ -389,6 +429,13 @@ static cell_t TimerIsrRegister(cell_t group, cell_t timer, cell_t xt, cell_t arg
   YV(sockets, sockaccept, n0 = accept(n2, (struct sockaddr *) a1, (socklen_t *) a0); NIPn(2)) \
   YV(sockets, select, n0 = select(n4, (fd_set *) a3, (fd_set *) a2, (fd_set *) a1, (struct timeval *) a0); NIPn(4)) \
   YV(sockets, poll, n0 = poll((struct pollfd *) a2, (nfds_t) n1, n0); NIPn(2)) \
+  YV(sockets, send, n0 = send(n3, a2, n1, n0); NIPn(3)) \
+  YV(sockets, sendto, n0 = sendto(n5, a4, n3, n2, (const struct sockaddr *) a1, n0); NIPn(5)) \
+  YV(sockets, sendmsg, n0 = sendmsg(n2, (const struct msghdr *) a1, n0); NIPn(2)) \
+  YV(sockets, recv, n0 = recv(n3, a2, n1, n0); NIPn(3)) \
+  YV(sockets, recvfrom, n0 = recvfrom(n5, a4, n3, n2, (struct sockaddr *) a1, (socklen_t *) a0); NIPn(5)) \
+  YV(sockets, recvmsg, n0 = recvmsg(n2, (struct msghdr *) a1, n0); NIPn(2)) \
+  YV(sockets, gethostbyname, n0 = (cell_t) gethostbyname(c0)) \
   XV(sockets, "errno", ERRNO, PUSH errno)
 #endif
 

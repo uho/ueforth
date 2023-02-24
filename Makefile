@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-VERSION=7.0.7.1
+VERSION=7.0.7.9
 STABLE_VERSION=7.0.6.19
 OLD_STABLE_VERSION=7.0.5.4
 REVISION=$(shell git rev-parse HEAD | head -c 20)
@@ -28,9 +28,7 @@ ESP32 = $(OUT)/esp32
 ESP32_SIM = $(OUT)/esp32-sim
 DEPLOY = $(OUT)/deploy
 
-ifneq ($(OS),Windows_NT)
-  OS = $(shell uname -s)
-endif
+OS = $(shell uname -s)
 
 CFLAGS_COMMON = -O2 -I ./ -I $(OUT)
 
@@ -40,36 +38,35 @@ CFLAGS_MINIMIZE = \
                 -ffreestanding \
                 -fno-stack-protector \
                 -fomit-frame-pointer \
-                -mno-stack-arg-probe \
                 -fno-ident \
                 -ffunction-sections -fdata-sections \
                 -fmerge-all-constants
 CFLAGS = $(CFLAGS_COMMON) \
          $(CFLAGS_MINIMIZE) \
          -Wall \
-         -std=c++11 \
          -Werror
-
 ifeq ($(OS),Darwin)
-  CXX=g++-10
-  CFLAGS += -Wl,-dead_strip -Wno-error \
-    -Wno-unused-variable -Wno-unused-but-set-variable -Wno-unused-function
+  CFLAGS += -Wl,-dead_strip -D_GNU_SOURCE -Wdeprecated -Wno-missing-braces -Wno-invalid-pp-token \
+            -Wno-macro-redefined -Wno-format-extra-args -Wno-format
 else
+  CFLAGS += -no-pie -Wl,--gc-sections
+endif
+ifeq ($(OS),Linux)
   CFLAGS_MINIMIZE += -Wl,--build-id=none
   CFLAGS += -s -Wl,--gc-sections -no-pie -Wl,--build-id=none
 endif
 
 STRIP_ARGS = -S
-
 ifeq ($(OS),Darwin)
- STRIP_ARGS += -x
-else
- STRIP_ARGS += --strip-unneeded \
-              --remove-section=.note.gnu.gold-version \
-              --remove-section=.comment \
-              --remove-section=.note \
-              --remove-section=.note.gnu.build-id \
-              --remove-section=.note.ABI-tag
+  STRIP_ARGS += -x
+endif
+ifeq ($(OS),Linux)
+  STRIP_ARGS += --strip-unneeded \
+                --remove-section=.note.gnu.gold-version \
+                --remove-section=.comment \
+                --remove-section=.note \
+                --remove-section=.note.gnu.build-id \
+                --remove-section=.note.ABI-tag
 endif
 
 LIBS=-ldl
@@ -111,6 +108,12 @@ RC64 = "$(shell $(LSQ) ${MSKITS}/*/bin/*/x64/rc.exe | head -n 1)"
 
 D8 = "$(shell $(LSQ) ${HOME}/src/v8/v8/out/x64.release/d8)"
 
+NODEJS = "$(shell which nodejs)"
+
+ifeq ("", $(NODEJS))
+  $(error "ERROR: Missing nodejs. Run: sudo apt-get install nodejs")
+endif
+
 # Selectively enable windows if tools available
 DEPLOYABLE := 1
 ifneq ("", $(CL32))
@@ -118,11 +121,11 @@ ifneq ("", $(CL32))
     TARGETS += win32_target
     TESTS += win32_tests
   else
-    $(warning "Missing Visual Studio rc.exe skipping 32-bit Windows.")
+    $(warning "WARNING: Missing Visual Studio rc.exe skipping 32-bit Windows.")
     DEPLOYABLE := 0
   endif
 else
-  $(warning "Missing Visual Studio cl.exe skipping 32-bit Windows.")
+  $(warning "WARNING: Missing Visual Studio cl.exe skipping 32-bit Windows.")
   DEPLOYABLE := 0
 endif
 ifneq ("", $(CL64))
@@ -130,11 +133,11 @@ ifneq ("", $(CL64))
     TARGETS += win64_target
     TESTS += win64_tests
   else
-    $(warning "Missing Visual Studio rc.exe skipping 64-bit Windows.")
+    $(warning "WARNING: Missing Visual Studio rc.exe skipping 64-bit Windows.")
     DEPLOYABLE := 0
   endif
 else
-  $(warning "Missing Visual Studio cl.exe skipping 64-bit Windows.")
+  $(warning "WARNING: Missing Visual Studio cl.exe skipping 64-bit Windows.")
   DEPLOYABLE := 0
 endif
 
@@ -143,7 +146,7 @@ DEPLOY_TARGETS =
 ifeq (1, $(DEPLOYABLE))
   DEPLOY_TARGETS := $(DEPLOY)/app.yaml
 else
-  $(warning "Missing some platforms skipping deployment build.")
+  $(warning "WARNING: Missing some platforms skipping deployment build.")
 endif
 
 WEB_D8_TESTS =
@@ -228,13 +231,14 @@ COMMON_PHASE1e = common/comments.fs \
                  common/floats.fs \
                  common/structures.fs
 
-COMMON_PHASE2 = common/utils.fs common/locals.fs
+COMMON_PHASE2 = common/utils.fs common/code.fs common/locals.fs common/case.fs
 
 COMMON_FILETOOLS = common/tasks.fs common/streams.fs \
                    common/filetools.fs common/including.fs \
-                   common/blocks.fs
+                   common/blocks.fs common/ansi.fs \
+                   common/visual.fs
 
-COMMON_DESKTOP = common/ansi.fs common/desktop.fs \
+COMMON_DESKTOP = common/desktop.fs \
                  common/graphics.fs common/graphics_utils.fs common/heart.fs
 
 POSIX_BOOT =  $(COMMON_PHASE1) \
@@ -246,34 +250,47 @@ POSIX_BOOT =  $(COMMON_PHASE1) \
               posix/autoboot.fs \
               common/fini.fs
 $(GEN)/posix_boot.h: tools/source_to_string.js $(POSIX_BOOT) | $(GEN)
+ifeq ($(OS),Darwin)
+	$< -win boot $(VERSION) $(REVISION) $(POSIX_BOOT) >$@
+else
 	$< boot $(VERSION) $(REVISION) $(POSIX_BOOT) >$@
+endif
+
+WINDOWS_BOOT_EXTRA = windows/windows_user.fs \
+                     windows/windows_gdi.fs \
+                     windows/windows_messages.fs \
+                     windows/graphics.fs
+$(GEN)/windows_boot_extra.h: tools/source_to_string.js $(WINDOWS_BOOT_EXTRA) | $(GEN)
+	$< -win boot_extra $(VERSION) $(REVISION) $(WINDOWS_BOOT_EXTRA) >$@
 
 WINDOWS_BOOT = $(COMMON_PHASE1) \
                windows/windows_core.fs \
                windows/windows_files.fs \
                windows/windows_console.fs \
-               windows/windows_user.fs \
-               windows/windows_gdi.fs \
-               windows/windows_messages.fs \
                windows/allocation.fs \
                $(COMMON_PHASE2) $(COMMON_FILETOOLS) $(COMMON_DESKTOP) \
-               windows/graphics.fs \
+               windows/load_extra.fs \
                posix/autoboot.fs \
                common/fini.fs
 $(GEN)/windows_boot.h: tools/source_to_string.js $(WINDOWS_BOOT) | $(GEN)
 	$< -win boot $(VERSION) $(REVISION) $(WINDOWS_BOOT) >$@
 
 ESP32_BOOT = $(COMMON_PHASE1) \
-             esp32/allocation.fs \
+             esp32/allocation.fs esp32/bindings.fs \
              $(COMMON_PHASE2) $(COMMON_FILETOOLS) \
-             esp32/bindings.fs esp32/platform.fs \
+             esp32/platform.fs \
+             common/assembler.fs esp32/xtensa-assembler.fs esp32/riscv-assembler.fs \
              posix/httpd.fs posix/web_interface.fs esp32/web_interface.fs \
              esp32/registers.fs esp32/timers.fs \
              esp32/bterm.fs posix/telnetd.fs \
              esp32/camera.fs esp32/camera_server.fs \
              esp32/autoboot.fs common/fini.fs
 $(GEN)/esp32_boot.h: tools/source_to_string.js $(ESP32_BOOT) | $(GEN)
+ifeq ($(OS),Darwin)
+	$< -win boot $(VERSION) $(REVISION) $(ESP32_BOOT) >$@
+else
 	$< boot $(VERSION) $(REVISION) $(ESP32_BOOT) >$@
+endif
 
 $(GEN)/dump_web_opcodes: \
     web/dump_web_opcodes.c \
@@ -281,7 +298,11 @@ $(GEN)/dump_web_opcodes: \
     common/tier1_opcodes.h \
     common/bits.h \
     common/floats.h | $(GEN)
+ifeq ($(OS),Darwin)
+	$(CC) $(CFLAGS) $< -o $@ 
+else
 	$(CXX) $(CFLAGS) $< -o $@
+endif
 
 $(GEN)/web_cases.js: $(GEN)/dump_web_opcodes | $(GEN)
 	$< cases >$@
@@ -294,7 +315,10 @@ $(GEN)/web_sys.js: $(GEN)/dump_web_opcodes | $(GEN)
 
 WEB_BOOT =  $(COMMON_PHASE1e) \
             web/platform.fs \
+            common/ansi.fs \
             $(COMMON_PHASE2) \
+            common/tasks.fs \
+            web/utils.fs \
             web/fini.fs
 $(GEN)/web_boot.js: tools/source_to_string.js $(WEB_BOOT) | $(GEN)
 	$< -web boot $(VERSION) $(REVISION) $(WEB_BOOT) >$@
@@ -333,12 +357,22 @@ $(RES)/ueforth_res64.res: windows/ueforth.rc $(RES)/eforth.ico
 # ---- WEB ----
 
 web: web_target web_tests
-web_target: $(WEB)/terminal.html $(WEB)/ueforth.js
+web_target: \
+    $(WEB)/terminal.html \
+    $(WEB)/lazy_terminal.html \
+    $(WEB)/script_test.html \
+    $(WEB)/ueforth.js
 
 $(WEB):
 	mkdir -p $(WEB)
 
 $(WEB)/terminal.html: web/terminal.html | $(WEB)
+	cp $< $@
+
+$(WEB)/lazy_terminal.html: web/lazy_terminal.html | $(WEB)
+	cp $< $@
+
+$(WEB)/script_test.html: web/script_test.html | $(WEB)
 	cp $< $@
 
 $(WEB)/ueforth.js: \
@@ -360,6 +394,7 @@ $(POSIX):
 
 $(POSIX)/ueforth: \
     posix/main.c \
+    posix/faults.h \
     common/tier0_opcodes.h \
     common/tier1_opcodes.h \
     common/tier2_opcodes.h \
@@ -370,7 +405,11 @@ $(POSIX)/ueforth: \
     common/bits.h \
     common/core.h \
     $(GEN)/posix_boot.h | $(POSIX)
+ifeq ($(OS),Darwin)
+	$(CC) $(CFLAGS) $< -o $@ $(LIBS)
+else
 	$(CXX) $(CFLAGS) $< -o $@ $(LIBS)
+endif
 	strip $(STRIP_ARGS) $@
 
 # ---- WINDOWS ----
@@ -394,6 +433,7 @@ $(WINDOWS)/uEf32.obj: \
     common/bits.h \
     common/core.h \
     windows/interp.h \
+    $(GEN)/windows_boot_extra.h \
     $(GEN)/windows_boot.h | $(WINDOWS)
 	$(CL32) /c /Fo$@ $(WIN_CFLAGS) $<
 
@@ -413,6 +453,7 @@ $(WINDOWS)/uEf64.obj: \
     common/bits.h \
     common/core.h \
     windows/interp.h \
+    $(GEN)/windows_boot_extra.h \
     $(GEN)/windows_boot.h | $(WINDOWS)
 	$(CL64) /c /Fo$@ $(WIN_CFLAGS) $<
 
@@ -431,7 +472,12 @@ $(ESP32_SIM):
 
 $(GEN)/print-esp32-builtins: \
     esp32/print-builtins.cpp esp32/builtins.h | $(GEN)
+ifeq ($(OS),Darwin)
+	cp esp32/print-builtins.cpp esp32/print-builtins.c
+	$(CC) $(CFLAGS) esp32/print-builtins.c -o $@ 
+else
 	$(CXX) $(CFLAGS) $< -o $@
+endif
 
 $(GEN)/esp32_sim_opcodes.h: $(GEN)/print-esp32-builtins | $(GEN)
 	$< >$@
@@ -439,10 +485,12 @@ $(GEN)/esp32_sim_opcodes.h: $(GEN)/print-esp32-builtins | $(GEN)
 $(ESP32_SIM)/Esp32forth-sim: \
     esp32/sim_main.cpp \
     esp32/main.cpp \
+    esp32/faults.h \
     common/tier0_opcodes.h \
     common/tier1_opcodes.h \
     common/tier2_opcodes.h \
     common/floats.h \
+    common/calls.h \
     common/calling.h \
     common/floats.h \
     common/bits.h \
@@ -451,7 +499,8 @@ $(ESP32_SIM)/Esp32forth-sim: \
     $(GEN)/esp32_boot.h \
     $(GEN)/esp32_sim_opcodes.h | $(ESP32_SIM)
 ifeq ($(OS),Darwin)
-	$(CXX) $(CFLAGS) -D_FILE_OFFSET_BITS=64 $< -o $@
+	cp esp32/sim_main.cpp esp32/sim_main.c
+	$(CC) $(CFLAGS) -D_FILE_OFFSET_BITS=64 esp32/sim_main.c -o $@
 else
 	$(CXX) $(CFLAGS) -m32 -D_FILE_OFFSET_BITS=64 $< -o $@
 endif
@@ -471,10 +520,13 @@ ESP32_PARTS = tools/replace.js \
               common/tier1_opcodes.h \
               common/tier2_opcodes.h \
               common/floats.h \
+              common/calls.h \
               common/calling.h \
               common/bits.h \
               common/core.h \
               common/interp.h \
+              esp32/faults.h \
+              esp32/platform.h \
               esp32/options.h \
               esp32/builtins.h \
               esp32/builtins.cpp \
@@ -488,17 +540,105 @@ $(ESP32)/ESP32forth/ESP32forth.ino: $(ESP32_PARTS) | $(ESP32)/ESP32forth
      tier0_opcodes=@common/tier0_opcodes.h \
      tier1_opcodes=@common/tier1_opcodes.h \
      tier2_opcodes=@common/tier2_opcodes.h \
+     calls=@common/calls.h \
      calling=@common/calling.h \
      floats=@common/floats.h \
      bits=@common/bits.h \
      core=@common/core.h \
      interp=@common/interp.h \
+     faults=@esp32/faults.h \
+     platform=@esp32/platform.h \
      options=@esp32/options.h \
      builtins.h=@esp32/builtins.h \
      builtins.cpp=@esp32/builtins.cpp \
      main.cpp=@esp32/main.cpp \
      boot=@$(GEN)/esp32_boot.h \
      >$@
+
+# ---- ESP32 ARDUINO BUILD AND FLASH ----
+
+ARDUINO_BUILDER="/mnt/c/Program Files (x86)/Arduino/arduino-builder.exe"
+ARDUINO="c:/Program Files (x86)/Arduino"
+LOCALAPPDATA=$(subst \,/,$(shell cmd.exe /c echo %LOCALAPPDATA%))
+ARDUINO_APP=${LOCALAPPDATA}/Arduino15
+ARDUINO_APP_DIR=$(subst C:/,/mnt/c/,${ARDUINO_APP})
+ESPTOOL=${ARDUINO_APP_DIR}/packages/esp32/tools/esptool_py/4.2.1/esptool.exe
+
+ESP32_BOARD_esp32=-fqbn=esp32:esp32:esp32:PSRAM=disabled,PartitionScheme=no_ota,CPUFreq=240,FlashMode=qio,FlashFreq=80,FlashSize=4M,UploadSpeed=921600,LoopCore=1,EventsCore=1,DebugLevel=none,EraseFlash=none
+
+ESP32_BOARD_esp32s2=-fqbn=esp32:esp32:esp32s2:CDCOnBoot=default,MSCOnBoot=default,DFUOnBoot=default,UploadMode=default,PSRAM=disabled,PartitionScheme=default,CPUFreq=240,FlashMode=qio,FlashFreq=80,FlashSize=4M,UploadSpeed=921600,DebugLevel=none,EraseFlash=none
+
+ESP32_BOARD_esp32s3=-fqbn=esp32:esp32:esp32s3:PSRAM=disabled,FlashMode=qio,FlashSize=4M,LoopCore=1,EventsCore=1,USBMode=hwcdc,CDCOnBoot=default,MSCOnBoot=default,DFUOnBoot=default,UploadMode=default,PartitionScheme=default,CPUFreq=240,UploadSpeed=921600,DebugLevel=none,EraseFlash=none
+
+ESP32_BOARD_esp32c3=-fqbn=esp32:esp32:esp32c3:CDCOnBoot=default,PartitionScheme=default,CPUFreq=160,FlashMode=qio,FlashFreq=80,FlashSize=4M,UploadSpeed=921600,DebugLevel=none,EraseFlash=none
+
+ESP32_BOARD_esp32cam=-fqbn=esp32:esp32:esp32cam:CPUFreq=240,FlashMode=qio,PartitionScheme=huge_app,FlashFreq=80,DebugLevel=none,EraseFlash=none
+
+$(ESP32)/%_build:
+	mkdir -p $@
+
+$(ESP32)/%_cache:
+	mkdir -p $@
+
+$(ESP32)/%_build/ESP32forth.ino.bin: $(ESP32)/ESP32forth/ESP32forth.ino | \
+    $(ESP32)/%_build $(ESP32)/%_cache
+	${ARDUINO_BUILDER} \
+    -hardware ${ARDUINO}/hardware \
+    -hardware ${ARDUINO_APP}/packages \
+    -tools ${ARDUINO}/tools-builder \
+    -tools ${ARDUINO}/hardware/tools/avr \
+    -tools ${ARDUINO_APP}/packages \
+    -built-in-libraries ${ARDUINO}/libraries \
+    -prefs=build.warn_data_percentage=75 \
+    ${ESP32_BOARD_$(subst _build,,$(notdir $(word 1,$|)))} \
+    -build-path $(word 1,$|) \
+    -build-cache $(word 2,$|) \
+    $(ESP32)/ESP32forth/ESP32forth.ino
+
+esp32all: \
+  $(ESP32)/esp32_build/ESP32forth.ino.bin \
+  $(ESP32)/esp32s2_build/ESP32forth.ino.bin \
+  $(ESP32)/esp32s3_build/ESP32forth.ino.bin \
+  $(ESP32)/esp32c3_build/ESP32forth.ino.bin \
+  $(ESP32)/esp32cam_build/ESP32forth.ino.bin
+
+PORT?=COM3
+
+putty:
+	${HOME}/Desktop/putty.exe -serial ${PORT} -sercfg 115200 &
+
+BAUD_esp32=921600
+BAUD_esp32s2=921600
+BAUD_esp32s3=921600
+BAUD_esp32c3=921600
+BAUD_esp32cam=460800
+
+BOOTLOADER_esp32=0x1000
+BOOTLOADER_esp32s2=0x1000
+BOOTLOADER_esp32s3=0x0
+BOOTLOADER_esp32c3=0x0
+BOOTLOADER_esp32cam=0x1000
+
+CHIP_esp32=esp32
+CHIP_esp32s2=esp32s2
+CHIP_esp32s3=esp32s3
+CHIP_esp32c3=esp32c3
+CHIP_esp32cam=esp32
+
+%-flash: $(ESP32)/%_build/ESP32forth.ino.bin
+	${ESPTOOL} \
+  --chip ${CHIP_$(subst -flash,,$@)} \
+  --baud ${BAUD_$(subst -flash,,$@)} \
+  --port ${PORT} \
+  --before default_reset \
+  --after hard_reset write_flash -z \
+  --flash_mode dio \
+  --flash_freq 80m \
+  --flash_size 4MB \
+  ${BOOTLOADER_$(subst -flash,,$@)} $(ESP32)/$(subst -flash,,$@)_build/ESP32forth.ino.bootloader.bin \
+  0x8000 $(ESP32)/$(subst -flash,,$@)_build/ESP32forth.ino.partitions.bin \
+  0xe000 ${ARDUINO_APP}/packages/esp32/hardware/esp32/2.0.5/tools/partitions/boot_app0.bin \
+  0x10000 $(ESP32)/$(subst -flash,,$@)_build/ESP32forth.ino.bin
 
 # ---- PACKAGE ----
 

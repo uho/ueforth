@@ -31,29 +31,90 @@
 #include "common/tier1_opcodes.h"
 #include "common/tier2_opcodes.h"
 #include "common/floats.h"
-#include "common/calling.h"
 #include "common/calls.h"
 
 #define HEAP_SIZE (10 * 1024 * 1024)
 #define STACK_CELLS (8 * 1024)
 
 static LRESULT WindowProcShim(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+static void SetupCtrlBreakHandler(void);
+static cell_t GetBootExtra(cell_t *start);
 
 #define PLATFORM_OPCODE_LIST \
-  Y(GetProcAddress, \
+  YV(windows, GetProcAddress, \
       tos = (cell_t) GetProcAddress((HMODULE) *sp, (LPCSTR) tos); --sp) \
-  Y(LoadLibraryA, tos = (cell_t) LoadLibraryA((LPCSTR) tos)) \
-  Y(WindowProcShim, DUP; tos = (cell_t) &WindowProcShim) \
+  YV(windows, LoadLibraryA, tos = (cell_t) LoadLibraryA((LPCSTR) tos)) \
+  YV(windows, WindowProcShim, DUP; tos = (cell_t) &WindowProcShim) \
+  YV(windows, SetupCtrlBreakHandler, SetupCtrlBreakHandler()) \
+  YV(windows, boot_extra, DUP; DUP; tos = GetBootExtra(sp)) \
   CALLING_OPCODE_LIST \
   FLOATING_POINT_LIST
 
-#define VOCABULARY_LIST V(forth) V(internals)
+#define VOCABULARY_LIST V(forth) V(internals) V(windows)
 
 #include "common/bits.h"
 #include "common/core.h"
+#include "common/calling.h"
 #include "windows/interp.h"
 
 #include "gen/windows_boot.h"
+#include "gen/windows_boot_extra.h"
+
+static DWORD forth_main_thread_id;
+static uintptr_t forth_main_thread_resume_sp;
+static uintptr_t forth_main_thread_resume_bp;
+
+static BOOL WINAPI forth_ctrl_handler(DWORD fdwCtrlType) {
+  HANDLE main_thread;
+  CONTEXT context = { 0 };
+
+  if (fdwCtrlType == CTRL_C_EVENT ||
+      fdwCtrlType == CTRL_BREAK_EVENT) {
+    // Using explicit instead of THREAD_ALL_ACCESS to be explicit as per docs.
+    // THREAD_QUERY_INFORMATION seems to be required for reasons unknown on x64.
+    main_thread = OpenThread(THREAD_QUERY_INFORMATION |
+                             THREAD_SET_CONTEXT |
+                             THREAD_GET_CONTEXT |
+                             THREAD_SUSPEND_RESUME, FALSE, forth_main_thread_id);
+    SuspendThread(main_thread);
+    context.ContextFlags = CONTEXT_CONTROL;
+    GetThreadContext(main_thread, &context);
+#ifdef _WIN64
+    context.Rip = 0;
+    context.Rsp = forth_main_thread_resume_sp;
+    context.Rbp = forth_main_thread_resume_bp;
+#else
+    context.Eip = 0;
+    context.Esp = forth_main_thread_resume_sp;
+    context.Ebp = forth_main_thread_resume_bp;
+#endif
+    SetThreadContext(main_thread, &context);
+    ResumeThread(main_thread);
+    CloseHandle(main_thread);
+    return TRUE;
+  }
+  return FALSE;
+}
+
+static void SetupCtrlBreakHandler(void) {
+  forth_main_thread_id = GetCurrentThreadId();
+  SetConsoleCtrlHandler(forth_ctrl_handler, TRUE);
+  CONTEXT context = { 0 };
+  context.ContextFlags = CONTEXT_CONTROL;
+  GetThreadContext(GetCurrentThread(), &context);
+#ifdef _WIN64
+  forth_main_thread_resume_sp = context.Rsp;
+  forth_main_thread_resume_bp = context.Rbp;
+#else
+  forth_main_thread_resume_sp = context.Esp;
+  forth_main_thread_resume_bp = context.Ebp;
+#endif
+}
+
+static cell_t GetBootExtra(cell_t *start) {
+  *start = (cell_t) boot_extra;
+  return (cell_t) sizeof(boot_extra) - 1;
+}
 
 static LRESULT WindowProcShim(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
   if (msg == WM_NCCREATE) {

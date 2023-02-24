@@ -16,7 +16,7 @@
 
 (function() {
 
-const HEAP_SIZE = (1024 * 1024);
+const HEAP_SIZE = (4 * 1024 * 1024);
 const STACK_CELLS = 4096;
 const VOCABULARY_DEPTH = 16;
 
@@ -82,10 +82,10 @@ function UPPER(ch) {
 function TOFLAGS(xt) { return xt - 1 * 4; }
 function TONAMELEN(xt) { return TOFLAGS(xt) + 1; }
 function TOPARAMS(xt) { return TOFLAGS(xt) + 2; }
-function TOSIZE(xt) { return CELL_ALIGNED(u8[TONAMELEN(xt)>>2]) + 4 * i32[TOPARAMS(xt)>>2]; }
+function TOSIZE(xt) { return CELL_ALIGNED(u8[TONAMELEN(xt)>>2]) + 4 * u16[TOPARAMS(xt)>>1]; }
 function TOLINK(xt) { return xt - 2 * 4; }
 function TONAME(xt) {
-  return (u8[TOFLAGS(xt)>>2] & BUILTIN_MARK)
+  return (u8[TOFLAGS(xt)] & BUILTIN_MARK)
     ? i32[TOLINK(xt)] : TOLINK(xt) - CELL_ALIGNED(u8[TONAMELEN(xt)]);
 }
 function TOBODY(xt) {
@@ -117,6 +117,9 @@ function BUILTIN_CODE(i) {
 }
 
 function Find(name) {
+  if (name.length === 0) {
+    return 0;
+  }
   name = name.toUpperCase();
   var raw = unescape(encodeURIComponent(name));
   for (var voc = i32[g_sys_context>>2]; i32[voc>>2]; voc += 4) {
@@ -189,10 +192,6 @@ function SSMOD(sp) {
   a *= b;
   var x = Math.floor(a / c);
   var m = a - x * c;
-  if (m < 0) {
-    x--;
-    m += c;
-  }
   i32[(sp - 8)>>2] = m;
   i32[sp>>2] = x;
 }
@@ -232,6 +231,21 @@ function Create(name, flags, op) {
 function Builtin(name, flags, vocab, opcode) {
   opcodes[opcode] = name;
   builtins.push([name, flags | BUILTIN_MARK, vocab, opcode]);
+}
+
+function LoadScripts() {
+  if (globalObj.write) {
+    return;
+  }
+  var text = '';
+  var tags = document.getElementsByTagName('script');
+  for (var i = 0; i < tags.length; ++i) {
+    if (tags[i].type == 'text/forth') {
+      text += tags[i].text + '\n';
+    }
+  }
+  var encoder = new TextEncoder();
+  context.scripts = encoder.encode(text);
 }
 
 function SetupBuiltins() {
@@ -337,15 +351,22 @@ function FConvert(pos, n, ret) {
 function Evaluate1(rp) {
   var call = 0;
   var tos, sp, ip, fp;
+
   // UNPARK
-  ip = i32[rp>>2]; rp -= 4; sp = i32[rp>>2]; rp -= 4; fp = i32[rp>>2]; rp -= 4; tos = i32[sp>>2]; sp -= 4;
+  sp = i32[rp>>2]; rp -= 4;
+  tos = i32[sp>>2]; sp -= 4;
+  fp = i32[rp>>2]; rp -= 4;
+  ip = i32[rp>>2]; rp -= 4;
 
   var name = sp + 8;
   var len = Parse(32, name);
   if (len == 0) {  // ignore empty
     sp += 4; i32[sp>>2] = tos; tos = 0;
     // PARK
-    sp += 4; i32[sp>>2] = tos; rp += 4; i32[rp>>2] = fp; rp += 4; i32[rp>>2] = sp; rp += 4; i32[rp>>2] = ip;
+    rp += 4; i32[rp>>2] = ip;
+    rp += 4; i32[rp>>2] = fp;
+    sp += 4; i32[sp>>2] = tos;
+    rp += 4; i32[rp>>2] = sp;
     return rp;
   }
   name = i32[name>>2];
@@ -385,7 +406,10 @@ function Evaluate1(rp) {
   }
   sp += 4; i32[sp>>2] = tos; tos = call;
   // PARK
-  sp += 4; i32[sp>>2] = tos; rp += 4; i32[rp>>2] = fp; rp += 4; i32[rp>>2] = sp; rp += 4; i32[rp>>2] = ip;
+  rp += 4; i32[rp>>2] = ip;
+  rp += 4; i32[rp>>2] = fp;
+  sp += 4; i32[sp>>2] = tos;
+  rp += 4; i32[rp>>2] = sp;
 
   return rp;
 }
@@ -449,9 +473,9 @@ function Init() {
   i32[g_sys_ntib>>2] = source_len;
   i32[g_sys_ntib>>2] = source_len;
 
+  rp += 4; i32[rp>>2] = start;
   rp += 4; i32[rp>>2] = fp;
   rp += 4; i32[rp>>2] = sp;
-  rp += 4; i32[rp>>2] = start;
   i32[g_sys_rp>>2] = rp;
 }
 
@@ -543,10 +567,10 @@ function VM(stdlib, foreign, heap) {
 
     // UNPARK
     rp = i32[g_sys_rp>>2]|0;
-    ip = i32[rp>>2]|0; rp = (rp - 4)|0;
     sp = i32[rp>>2]|0; rp = (rp - 4)|0;
-    fp = i32[rp>>2]|0; rp = (rp - 4)|0;
     tos = i32[sp>>2]|0; sp = (sp - 4)|0;
+    fp = i32[rp>>2]|0; rp = (rp - 4)|0;
+    ip = i32[rp>>2]|0; rp = (rp - 4)|0;
     for (;;) {
       //trace(ip|0, sp|0, tos|0);
       w = i32[ip>>2]|0;
@@ -592,11 +616,29 @@ function getGlobalObj() {
 var globalObj = getGlobalObj();
 
 var module = VM(globalObj, ffi, heap);
-Init();
+
 function run() {
   module.run();
   setTimeout(run, 0);
 }
-setTimeout(run, 0);
+
+function Start() {
+  LoadScripts();
+  Init();
+  setTimeout(run, 0);
+}
+
+if (globalObj.write) {
+  Start();
+} else {
+  if (globalObj.ueforth === null) {
+    globalObj.ueforth = context;
+    context.Start = Start;
+  } else {
+    window.addEventListener('load', function() {
+      Start();
+    });
+  }
+}
 
 })();

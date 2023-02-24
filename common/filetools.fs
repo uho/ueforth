@@ -13,10 +13,56 @@
 \ limitations under the License.
 
 : dump-file ( a n a n -- )
-  w/o create-file if drop ." failed create-file" exit then
-  >r r@ write-file if r> drop ." failed write-file" exit then
+  w/o create-file throw
+  >r r@ write-file throw
   r> close-file drop
 ;
+
+: cp ( "src" "dst" -- )
+  bl parse r/o bin open-file throw { inf }
+  bl parse w/o bin create-file throw { outf }
+  begin
+    here 80 inf read-file throw
+    dup 0= if drop outf close-file throw inf close-file throw exit then
+    here swap outf write-file throw
+  again
+;
+
+: mv ( "src" "dst" -- ) bl parse bl parse rename-file throw ;
+: rm ( "path" -- ) bl parse delete-file throw ;
+
+: touch ( "path" -- )
+  bl parse 2dup w/o open-file
+  if drop w/o create-file throw then
+  close-file throw
+;
+
+internals definitions
+
+: cremit ( ch -- ) dup nl = if drop cr else emit then ;
+: crtype ( a n -- ) for aft dup c@ cremit 1+ then next drop ;
+
+forth definitions internals
+
+: cat ( "path" -- )
+  bl parse r/o bin open-file throw { fh }
+  begin
+    here 80 fh read-file throw
+    dup 0= if drop fh close-file throw exit then
+    here swap crtype
+  again
+;
+
+DEFINED? read-dir [IF]
+: ls ( "path" -- )
+  bl parse dup 0= if 2drop s" ." then
+  open-dir throw { dh } begin
+    dh read-dir dup 0= if
+      2drop dh close-dir throw exit
+    then type cr
+  again
+;
+[THEN]
 
 internals definitions
 ( Leave some room for growth of starting system. )

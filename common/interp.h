@@ -32,11 +32,12 @@ static cell_t *forth_run(cell_t *init_rp) {
   if (!init_rp) {
     g_sys->DOCREATE_OP = ADDROF(DOCREATE);
     g_sys->builtins = builtins;
+    forth_faults_setup();
     return 0;
   }
   register cell_t *ip, *rp, *sp, tos, w;
   register float *fp, ft;
-  rp = init_rp; UNPARK; NEXT;
+  rp = init_rp; UNPARK; FAULT_ENTRY; NEXT;
 #define Z(flags, name, op, code) OP_ ## op: { code; } NEXT;
   PLATFORM_OPCODE_LIST
   TIER2_OPCODE_LIST

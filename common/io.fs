@@ -16,7 +16,8 @@
 defer type
 defer key
 defer key?
-defer bye
+defer terminate
+: bye   0 terminate ;
 : emit ( n -- ) >r rp@ 1 type rdrop ;
 : space bl emit ;   : cr 13 emit nl emit ;
 
@@ -59,6 +60,10 @@ variable hld
    if cr ." ERROR: " type ."  NOT FOUND!" cr -1 throw then ;
 ' notfound 'notfound !
 
+( Abort )
+: abort   -1 throw ;
+: abort"   postpone ." postpone cr -2 aliteral postpone throw ; immediate
+
 ( Input )
 : raw.s   depth 0 max for aft sp@ r@ cells - @ . then next ;
 variable echo -1 echo !   variable arrow -1 arrow !  0 value wascr
@@ -95,8 +100,8 @@ create input-buffer   input-limit allot
 
 ( Stack Guards )
 sp0 'stack-cells @ 2 3 */ cells + constant sp-limit
-: ?stack   sp@ sp0 < if ." STACK UNDERFLOW " -1 throw then
-           sp-limit sp@ < if ." STACK OVERFLOW " -1 throw then ;
+: ?stack   sp@ sp0 < if ." STACK UNDERFLOW " -4 throw then
+           sp-limit sp@ < if ." STACK OVERFLOW " -3 throw then ;
 
 ( REPL )
 : prompt   ."  ok" cr ;
@@ -104,9 +109,13 @@ sp0 'stack-cells @ 2 3 */ cells + constant sp-limit
 : evaluate ( a n -- ) 'tib @ >r #tib @ >r >in @ >r
                       #tib ! 'tib ! 0 >in ! evaluate-buffer
                       r> >in ! r> #tib ! r> 'tib ! ;
-: quit    begin ['] evaluate-buffer catch
-          if 0 state ! sp0 sp! fp0 fp! rp0 rp! ." ERROR" cr then
-          prompt refill drop again ;
+: evaluate&fill
+   begin >in @ #tib @ >= if prompt refill drop then evaluate-buffer again ;
+: quit
+   #tib @ >in !
+   begin ['] evaluate&fill catch
+         if 0 state ! sp0 sp! fp0 fp! rp0 rp! ."  ERROR " cr then
+   again ;
 variable boot-prompt
 : free. ( nf nu -- ) 2dup swap . ." free + " . ." used = " 2dup + . ." total ("
                      over + 100 -rot */ n. ." % free)" ;
@@ -114,4 +123,4 @@ variable boot-prompt
            boot-prompt @ if boot-prompt @ execute then
            ." Forth dictionary: " remaining used free. cr
            ." 3 x Forth stacks: " 'stack-cells @ cells . ." bytes each" cr
-           prompt refill drop quit ;
+           quit ;

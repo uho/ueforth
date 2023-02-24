@@ -16,13 +16,16 @@ needs testing.fs
 needs utils.fs
 needs base_tests.fs
 needs utils_tests.fs
+needs throw_values_tests.fs
 needs vocabulary_tests.fs
 needs locals_tests.fs
+needs case_tests.fs
 needs doloop_tests.fs
 needs conditionals_tests.fs
 needs float_tests.fs
 needs forth_namespace_tests.fs
 needs structures_tests.fs
+needs fault_tests.fs
 needs including_tests/including_tests.fs
 needs modules_tests.fs
 needs ../lib/hashing/sha1_tests.fs

@@ -19,12 +19,13 @@
  * Revision: {{REVISION}}
  */
 
+{{platform}}
 {{options}}
 {{tier0_opcodes}}
 {{tier1_opcodes}}
 {{tier2_opcodes}}
 {{floats}}
-{{calling}}
+{{calls}}
 {{builtins.h}}
 {{builtins.cpp}}
 {{main.cpp}}

@@ -16,7 +16,7 @@
 internals definitions
 : autoexec
    ( Open passed file if any. )
-   argc 2 >= if 1 argv included exit then
+   argc 2 >= if 1 argv ['] included catch if 1 terminate then exit then
    ( Open remembered file if any. )
    ['] revive catch drop
 ;

@@ -14,6 +14,7 @@
 // limitations under the License.
 
 #include <dlfcn.h>
+#include <errno.h>
 #include <sys/mman.h>
 #include <sys/errno.h>
 
@@ -21,15 +22,16 @@
 #include "common/tier1_opcodes.h"
 #include "common/tier2_opcodes.h"
 #include "common/floats.h"
-#include "common/calling.h"
 #include "common/calls.h"
 
 #define HEAP_SIZE (10 * 1024 * 1024)
 #define STACK_CELLS (8 * 1024)
 
+// NOTE: errno implemented as opcode to avoid a Linux platform dependency.
+
 #define PLATFORM_OPCODE_LIST \
-  XV(forth, "errno", _errno, DUP; tos = (cell_t) errno) \
-  Y(DLSYM, tos = (cell_t) dlsym(a1 ? a1 : RTLD_DEFAULT, (const char*)a0); --sp) \
+  XV(forth, "errno", ERRNO_INTERNAL, DUP; tos = (cell_t) errno) \
+  Y(DLSYM, tos = (cell_t) dlsym(a1 ? a1 : RTLD_DEFAULT, c0); NIP) \
   CALLING_OPCODE_LIST \
   FLOATING_POINT_LIST
 
@@ -37,6 +39,8 @@
 
 #include "common/bits.h"
 #include "common/core.h"
+#include "posix/faults.h"
+#include "common/calling.h"
 #include "common/interp.h"
 
 #include "gen/posix_boot.h"

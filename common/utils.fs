@@ -17,12 +17,39 @@
 ( For tests and asserts )
 : assert ( f -- ) 0= throw ;
 
-( Examine Memory )
-: dump ( a n -- )
-   cr 0 swap for dup 16 mod 0= if cr then 2dup + c@ . 1+ next 2drop cr ;
-
 ( Print spaces )
 : spaces ( n -- ) for aft space then next ;
+
+internals definitions
+
+( Temporary for platforms without CALLCODE )
+DEFINED? CALLCODE 0= [IF]
+  create CALLCODE
+[THEN]
+
+( Safe memory access, i.e. aligned )
+cell 1- constant cell-mask
+: cell-base ( a -- a ) cell-mask invert and ;
+: cell-shift ( a -- a ) cell-mask and 8 * ;
+: ca@ ( a -- n ) dup cell-base @ swap cell-shift rshift 255 and ;
+
+( Print address line leaving room )
+: dump-line ( a -- a ) cr <# #s #> 20 over - >r type r> spaces ;
+
+( Semi-dangerous word to trim down the system heap )
+DEFINED? realloc [IF]
+: relinquish ( n -- ) negate 'heap-size +! 'heap-start @ 'heap-size @ realloc drop ;
+[THEN]
+
+forth definitions internals
+
+( Examine Memory )
+: dump ( a n -- )
+   over 15 and if over dump-line over 15 and 3 * spaces then
+   for aft
+     dup 15 and 0= if dup dump-line then
+     dup ca@ <# # #s #> type space 1+
+   then next drop cr ;
 
 ( Remove from Dictionary )
 : forget ( "name" ) ' dup >link current @ !  >name drop here - allot ;
@@ -112,9 +139,10 @@ variable indent
     ?see-flags cr
     exit
   then
-  dup >flags BUILTIN_FORK and if ." Built-in fork: " see. exit then
+  dup >flags BUILTIN_FORK and if ." Built-in-fork: " see. exit then
   dup @ ['] input-buffer @ = if ." CREATE/VARIABLE: " see. cr exit then
   dup @ ['] SMUDGE @ = if ." DOES>/CONSTANT: " see. cr exit then
+  dup @ ['] callcode @ = if ." Code: " see. cr exit then
   dup >params 0= if ." Built-in: " see. cr exit then
   ." Unsupported: " see. cr ;
 

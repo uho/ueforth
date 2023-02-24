@@ -17,6 +17,7 @@
 
 #define JMPW continue decode
 #define SSMOD_FUNC SSMOD_FUNC
+#define WEB_DUMP
 #define COMMA COMMA
 
 #include "common/tier0_opcodes.h"
@@ -97,6 +98,7 @@ int main(int argc, char *argv[]) {
     EMITSYS(argc);
     EMITSYS(argv);
     EMITSYS(runner);
+    EMITSYS(throw_handler);
     EMITSYS(rp);
     EMITSYS(DOLIT_XT);
     EMITSYS(DOFLIT_XT);

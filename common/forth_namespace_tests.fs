@@ -26,6 +26,13 @@ also internals
     >link
   repeat drop ;
 
+e: check-case
+  out: ENDOF 
+  out: OF 
+  out: ENDCASE 
+  out: CASE 
+;e
+
 e: check-locals
   out: +to 
   out: to 
@@ -56,6 +63,8 @@ e: check-boot
   out: tib 
   out: accept 
   out: echo 
+  out: abort" 
+  out: abort 
   out: z>s 
   out: s>z 
   out: r~ 
@@ -86,6 +95,7 @@ e: check-boot
   out: space 
   out: emit 
   out: bye 
+  out: terminate 
   out: key? 
   out: key 
   out: type 
@@ -307,6 +317,17 @@ e: check-float-opcodes
   out: FSQRT 
 ;e
 
+e: check-files-dir
+  out: READ-DIR 
+  out: CLOSE-DIR 
+  out: OPEN-DIR 
+;e
+
+e: check-files-dir-reverse
+  out: OPEN-DIR 
+  out: CLOSE-DIR 
+;e
+
 e: check-files
   out: NON-BLOCK 
   out: FILE-SIZE 
@@ -397,8 +418,8 @@ e: check-utils
   out: str= 
   out: :noname 
   out: forget 
-  out: spaces 
   out: dump 
+  out: spaces 
   out: assert 
 ;e
 
@@ -409,6 +430,17 @@ e: check-snapshots
   out: remember 
   out: restore 
   out: save 
+;e
+
+e: check-fileops
+DEFINED? open-dir [IF]
+  out: ls 
+[THEN]
+  out: cat 
+  out: touch 
+  out: rm 
+  out: mv 
+  out: cp 
   out: dump-file 
 ;e
 
@@ -435,6 +467,7 @@ e: check-args
 ;e
 
 e: check-imports
+  out: file-exists? 
   out: needs 
   out: required 
   out: included? 
@@ -466,20 +499,28 @@ e: check-opcodes
 e: check-desktop
   out: graphics 
   check-args
-  check-ansi
 ;e
 
 e: check-filetools
+  out: visual 
+  check-ansi
   check-blocks
   check-imports
   check-snapshots
+  check-fileops
   out: streams 
   out: ms 
   check-tasks
 ;e
 
+e: check-asm
+  out: asm 
+;e
+
 e: check-phase2
+  check-case
   check-locals
+  check-asm
   check-utils
 ;e
 
@@ -515,9 +556,6 @@ e: test-windows-forth-namespace
   out: ms 
   out: windows 
   check-phase1
-  out: GetProcAddress 
-  out: LoadLibraryA 
-  out: WindowProcShim 
   check-opcodes
   out: forth-builtins 
 ;e
@@ -557,8 +595,13 @@ e: test-posix-forth-namespace
   out: termios 
   check-allocation
   out: ok 
+  out: pwd 
+  out: rmdir 
+  out: mkdir 
+  out: cd 
   out: ms-ticks 
   out: ms 
+  check-files-dir
   check-files
   out: default-key 
   out: default-type 
@@ -576,6 +619,10 @@ e: test-esp32-forth-voclist
   internals ' ansi voclist-from
   out: ansi 
   out: registers 
+  out: ansi 
+  out: editor 
+  out: streams 
+  out: tasks 
   out: oled 
   out: bluetooth 
   out: rtos 
@@ -591,9 +638,6 @@ e: test-esp32-forth-voclist
   out: WiFi 
   out: Wire 
   out: ESP 
-  out: editor 
-  out: streams 
-  out: tasks 
   out: structures 
   out: internalized 
   out: internals 
@@ -601,13 +645,15 @@ e: test-esp32-forth-voclist
 ;e
 
 e: check-esp32-platform
+  out: riscv-assembler 
+  out: xtensa-assembler 
+  out: assembler 
   out: ok 
   out: LED 
   out: OUTPUT 
   out: INPUT 
   out: HIGH 
   out: LOW 
-  out: page 
   out: tone 
   out: freq 
   out: duty 
@@ -618,17 +664,47 @@ e: check-esp32-platform
   out: default-type 
 ;e
 
+e: check-esp32-platform-flags
+  out: ESP32? 
+  out: ESP32-S2? 
+  out: ESP32-S3? 
+  out: ESP32-C3? 
+  out: PSRAM? 
+  out: Xtensa? 
+  out: RISC-V? 
+;e
+
 e: check-esp32-builtins
+  check-esp32-platform-flags
   out: pinMode 
   out: digitalWrite 
   out: digitalRead 
   out: analogRead 
   out: pulseIn 
   out: MS-TICKS 
-  out: TERMINATE 
   check-files-reverse
+  check-files-dir-reverse
   out: dacWrite 
   out: MDNS.begin 
+;e
+
+e: check-esp32-bindings
+  out: oled 
+  out: bluetooth 
+  out: rtos 
+  out: rmt 
+  out: interrupts 
+  out: sockets 
+  out: Serial 
+  out: ledc 
+  out: SPIFFS 
+  out: spi_flash 
+  out: SD_MMC 
+  out: SD 
+  out: WiFi 
+  out: Wire 
+  out: ESP 
+  out: read-dir 
 ;e
 
 e: test-esp32-forth-namespace
@@ -647,23 +723,9 @@ e: test-esp32-forth-namespace
   out: web-interface 
   out: httpd 
   check-esp32-platform
-  out: oled 
-  out: bluetooth 
-  out: rtos 
-  out: rmt 
-  out: interrupts 
-  out: sockets 
-  out: Serial 
-  out: ledc 
-  out: SPIFFS 
-  out: spi_flash 
-  out: SD_MMC 
-  out: SD 
-  out: WiFi 
-  out: Wire 
-  out: ESP 
   check-filetools
   check-phase2
+  check-esp32-bindings
   check-allocation
   check-phase1
   check-esp32-builtins

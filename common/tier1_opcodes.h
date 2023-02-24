@@ -17,9 +17,9 @@
   Y(rdrop, --rp) \
   XV(forth, "*/", STARSLASH, SSMOD_FUNC; NIP) \
   X("*", STAR, tos *= *sp--) \
-  X("/mod", SLASHMOD, DUP; *sp = 1; SSMOD_FUNC) \
-  X("/", SLASH, DUP; *sp = 1; SSMOD_FUNC; NIP) \
-  Y(mod, DUP; *sp = 1; SSMOD_FUNC; DROP) \
+  X("/mod", SLASHMOD, SLASHMOD_FUNC) \
+  X("/", SLASH, SLASH_FUNC) \
+  X("mod", MOD, MOD_FUNC) \
   Y(invert, tos = ~tos) \
   Y(negate, tos = -tos) \
   X("-", MINUS, tos = (*sp--) - tos) \
@@ -44,7 +44,7 @@
   X("+!", PLUSSTORE, *((cell_t *) tos) += *sp--; DROP) \
   X("cell+", CELLPLUS, tos += sizeof(cell_t)) \
   Y(cells, tos *= sizeof(cell_t)) \
-  X("cell/", CELLSLASH, DUP; tos = sizeof(cell_t); DUP; *sp = 1; SSMOD_FUNC; NIP) \
+  X("cell/", CELLSLASH, CELLSLASH_FUNC) \
   X("2drop", TWODROP, NIP; DROP) \
   X("2dup", TWODUP, DUP; tos = sp[-1]; DUP; tos = sp[-1]) \
   X("2@", TWOAT, DUP; *sp = *(cell_t *) tos; tos = ((cell_t *) tos)[1]) \
@@ -80,6 +80,7 @@
   XV(internals, "'argc", ARGC, DUP; tos = (cell_t) &g_sys->argc) \
   XV(internals, "'argv", ARGV, DUP; tos = (cell_t) &g_sys->argv) \
   XV(internals, "'runner", RUNNER, DUP; tos = (cell_t) &g_sys->runner) \
+  XV(internals, "'throw-handler", TTHROW_HANDLER, DUP; tos = (cell_t) &g_sys->throw_handler) \
   Y(context, DUP; tos = (cell_t) (g_sys->context + 1)) \
   Y(latestxt, DUP; tos = (cell_t) g_sys->latestxt) \
   XV(forth_immediate, "[", LBRACKET, g_sys->state = 0) \

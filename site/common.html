@@ -43,6 +43,44 @@ DUMP ( a n -- ) Dump a memory region
 SEE ( "name" -- ) Attempt to decompile a word
 VARIABLE ECHO -- Determines if commands are echoed
 REMAINING ( -- n ) Bytes remaining in Forth heap.
+DUMP-FILE ( data data# fn fn# -- ) Write contents of a file throws on error.
+</pre>
+
+<h5>Shell Utilities</h5>
+<p><b>Requires v7.0.7.3+ -- ONLY Posix + ESP32</b></p>
+<pre>
+cp ( "src" "dst" -- ) Copy "src" file to "dst".
+mv ( "src" "dst" -- ) Rename "src" file to "dst".
+rm ( "path" -- ) Remove "path" file.
+touch ( "path" -- ) Create "path" file if it doesn't exist.
+cat ( "path" -- ) Print contents of "path" file.
+ls ( "path" -- ) List files or directories in "path".
+</pre>
+<p><b>Requires v7.0.7.3+ -- ONLY Posix</b></p>
+<pre>
+cd ( "path" -- ) Change director to "path".
+mkdir ( "path" -- ) Create directory "path".
+rmdir ( "path" -- ) Remove directory "path".
+pwd ( -- ) Print current directory.
+</pre>
+
+<h5>Visual Editor</h5>
+<p><b>Requires v7.0.7.2+</b></p>
+<pre>
+VISUAL EDIT ( "path" --) Enters a visual editor opening file "path".
+
+NOTE: On ESP32 requires connection over an ANSI serial terminal like Putty.
+
+LIMITATIONS: Terminal doesn't know screen dimensions
+             and is very redraw inefficient.
+
+Keys:
+  Ctrl-S          -- Save now.
+  Ctrl-X / Ctrl-Q -- Quit, asking Y/N to save.
+  Ctrl-L          -- Redraw the screen.
+  Backspace       -- Delete a character backwards.
+  Arrow Keys      -- Movement.
+  PgUp/PgDn       -- Scroll up/down a page.
 </pre>
 
 <h5>Vocabularies</h5>
@@ -120,14 +158,44 @@ P ( -- ) Move to the previous block
 N ( -- ) Move to the next block
 </pre>
 
-<h5>Utilities</h5>
+<h5>Sockets</h5>
+<p><b>Requires v7.0.7.2+ for UDP</b></p>
+These words are available inside the <code>sockets</code> vocabulary.
 <pre>
-SEE ( "name" -- ) Attempt to decompile a word
-ECHO ( -- a ) -- Address of flag that determines if commands are echoed
+socket ( domain type protocol -- sock/err )
+setsockopt ( sock level optname optval optlen -- 0/err )
+bind ( sock addr addrlen -- 0/err )
+listen ( sock connections -- 0/err )
+sockaccept ( sock addr addrlen -- sock/err ) -- varies from bsd socks
+connect ( sock addr addrlen -- 0/err )
+select ( numfds readfds writefds errfds timeout -- fd/err )
+poll ( pollfds n timeout -- fd/err )
+send ( sock a n flags -- n/err )
+sendto ( sock a n flags addr addrlen -- n/err )
+sendmsg ( sock msg flags -- n/err )
+recv ( sock a n flags -- n/err )
+recvfrom ( sock a n flags addr addrlen -- n/err )
+recvmsg ( sock msg flags -- n/err )
+gethostbyname ( hostnamez -- hostent/0 )
+errno ( -- err ) -- ESP32 only as of v7.0.7.2
+
+sockaddr ( "name" -- ) creates a sockaddr structure
+-&gt;port@ ( a -- n ) get port from sockaddr
+-&gt;port! ( n a -- ) set port in sockaddr
+-&gt;addr@ ( a -- n ) get big-endian address from sockaddr
+-&gt;addr! ( n a -- ) set big-endian address in sockaddr
+ip. ( n -- ) Print address as x.y.z.w IP address.
+
+( Constants )
+SOCK_STREAM SOCK_DGRAM SOCK_RAW
+AF_INET
+sizeof(sockaddr_in)
+SOL_SOCKET
+SO_REUSEADDR
 </pre>
 
 <h5>Floating-Point</h5>
-<p><b>(Requires v7.0.6.5+)</b></p>
+<p><b>Requires v7.0.6.5+</b></p>
 <p>
 Single precision floating-point support is available as a work in progress.
 While initially left out in the name of minimalism,

@@ -47,16 +47,27 @@ static cell_t *forth_run(cell_t *init_rp) {
   register float *fp, ft;
   rp = init_rp; UNPARK;
   for (;;) {
+    __try {
+      for (;;) {
 next:
-    w = *ip++;
+        w = *ip++;
 work:
-    switch (*(cell_t *) w & 0xff) {
+        switch (*(cell_t *) w & 0xff) {
 #define Z(flags, name, op, code) case OP_ ## op: { code; } NEXT;
   PLATFORM_OPCODE_LIST
   TIER2_OPCODE_LIST
   TIER1_OPCODE_LIST
   TIER0_OPCODE_LIST
 #undef Z
+        }
+      }
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+      DWORD code = GetExceptionCode();
+      switch (code) {
+        case EXCEPTION_INT_DIVIDE_BY_ZERO: THROWIT(-10); break;
+        case EXCEPTION_ACCESS_VIOLATION: THROWIT(-9); break;
+        default: THROWIT(code); break;
+      }
     }
   }
 }
